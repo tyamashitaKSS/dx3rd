@@ -21,7 +21,8 @@ test("combat board static assets are bundled for hosting", async () => {
   assert.match(html, /terrainLayer/);
   assert.match(html, /syncPanel/);
   assert.match(html, /joinRoomForm/);
-  assert.match(html, /type="module" src="sync\.js"/);
+  assert.match(html, /styles\.css\?v=20260725-3/);
+  assert.match(html, /type="module" src="sync\.js\?v=20260725-3"/);
   assert.match(script, /REMOTE_STATE_ENDPOINT = "\/api\/board"/);
   assert.match(script, /initializeRemoteState\(\)/);
   assert.match(script, /DX3RDBoard/);

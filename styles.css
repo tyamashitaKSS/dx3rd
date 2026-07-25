@@ -137,19 +137,23 @@ h2 {
 
 .sync-heading,
 .sync-room {
-  display: flex;
+  display: grid;
   align-items: center;
-  justify-content: space-between;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
+  min-width: 0;
 }
 
 .sync-status {
   display: inline-flex;
   align-items: center;
+  justify-self: end;
   gap: 6px;
+  max-width: 100%;
   color: var(--muted);
   font-size: 12px;
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .sync-status::before {
@@ -170,12 +174,13 @@ h2 {
 
 .sync-room-code {
   min-width: 0;
-  overflow: hidden;
   color: var(--ink);
-  font-size: 14px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
   font-weight: 900;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 
 .sync-participants {
@@ -202,14 +207,20 @@ h2 {
 
 .sync-join-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
+  min-width: 0;
 }
 
 .sync-join-controls input {
+  width: 100%;
   min-width: 0;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 12px;
+}
+
+.sync-join-controls button {
+  width: 100%;
 }
 
 .sync-join-form p {
