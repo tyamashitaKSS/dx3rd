@@ -175,11 +175,18 @@ async function initializeSupabaseSync() {
 
     const remoteRoom = Array.isArray(data) ? data[0] : null;
     const remoteRevision = Number(remoteRoom?.revision) || 0;
-    if (remoteRoom?.board_state && remoteRevision > lastRevision) {
-      receiveRemoteState(
-        JSON.stringify(remoteRoom.board_state),
-        remoteRevision,
-      );
+    if (!remoteRoom?.board_state) {
+      return;
+    }
+
+    const remoteSerialized = JSON.stringify(remoteRoom.board_state);
+    if (remoteRevision > lastRevision) {
+      receiveRemoteState(remoteSerialized, remoteRevision);
+    } else if (
+      remoteRevision === lastRevision &&
+      remoteSerialized !== boardApi.serializeState()
+    ) {
+      receiveRemoteState(remoteSerialized, remoteRevision, true);
     }
   }
 
