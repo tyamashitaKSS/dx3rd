@@ -24,8 +24,10 @@ test("combat board static assets are bundled for hosting", async () => {
   assert.match(script, /REMOTE_STATE_ENDPOINT = "\/api\/board"/);
   assert.match(script, /initializeRemoteState\(\)/);
   assert.match(script, /DX3RDBoard/);
-  assert.match(syncScript, /joinRoom/);
-  assert.match(syncScript, /\[sendBoardState, onBoardState\]/);
+  assert.match(syncScript, /createClient/);
+  assert.match(syncScript, /dx3rd_load_board/);
+  assert.match(syncScript, /dx3rd_save_board/);
+  assert.match(syncScript, /event: "board-state"/);
   assert.match(syncScript, /dx3rd-room-state-/);
   assert.match(syncScript, /copyInviteLink/);
   assert.match(styles, /\.terrain-layer/);
