@@ -41,6 +41,7 @@ async function initializeSupabaseSync() {
   let saveTimer = null;
   let saveRetryTimer = null;
   let retryTimer = null;
+  let refreshTimer = null;
   let saving = false;
 
   syncPanel.hidden = false;
@@ -72,6 +73,9 @@ async function initializeSupabaseSync() {
       if (status === "SUBSCRIBED") {
         await channel.track({ joinedAt: new Date().toISOString() });
         await loadInitialState();
+        if (refreshTimer == null) {
+          refreshTimer = window.setInterval(refreshLatestState, 1500);
+        }
         return;
       }
       if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
@@ -153,6 +157,29 @@ async function initializeSupabaseSync() {
       queueSave(serialized, true);
     } else {
       updateStatus("ルーム待機", "waiting");
+    }
+  }
+
+  async function refreshLatestState() {
+    if (saving || pendingLocalState != null) {
+      return;
+    }
+
+    const { data, error } = await client.rpc("dx3rd_load_board", {
+      p_room_id: room.id,
+      p_room_secret: room.key,
+    });
+    if (error) {
+      return;
+    }
+
+    const remoteRoom = Array.isArray(data) ? data[0] : null;
+    const remoteRevision = Number(remoteRoom?.revision) || 0;
+    if (remoteRoom?.board_state && remoteRevision > lastRevision) {
+      receiveRemoteState(
+        JSON.stringify(remoteRoom.board_state),
+        remoteRevision,
+      );
     }
   }
 

@@ -23,8 +23,8 @@ test("combat board static assets are bundled for hosting", async () => {
   assert.match(html, /syncPanel/);
   assert.match(html, /joinRoomForm/);
   assert.match(html, /styles\.css\?v=20260725-3/);
-  assert.match(html, /app\.js\?v=20260725-5/);
-  assert.match(html, /type="module" src="sync\.js\?v=20260725-5"/);
+  assert.match(html, /app\.js\?v=20260725-6/);
+  assert.match(html, /type="module" src="sync\.js\?v=20260725-6"/);
   assert.match(script, /REMOTE_STATE_ENDPOINT = "\/api\/board"/);
   assert.match(script, /initializeRemoteState\(\)/);
   assert.match(script, /DX3RDBoard/);
@@ -37,6 +37,7 @@ test("combat board static assets are bundled for hosting", async () => {
   assert.match(syncScript, /parseRoomCode/);
   assert.match(syncScript, /key = id/);
   assert.match(syncScript, /createBoardPatch/);
+  assert.match(syncScript, /setInterval\(refreshLatestState, 1500\)/);
   assert.match(mergeScript, /createCollectionPatch/);
   assert.match(styles, /\.terrain-layer/);
   assert.match(styles, /\.sync-status/);
