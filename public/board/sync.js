@@ -8,6 +8,8 @@ const syncStatus = document.querySelector("#syncStatus");
 const syncRoomCode = document.querySelector("#syncRoomCode");
 const syncParticipants = document.querySelector("#syncParticipants");
 const copyInviteLink = document.querySelector("#copyInviteLink");
+const joinRoomForm = document.querySelector("#joinRoomForm");
+const roomJoinInput = document.querySelector("#roomJoinInput");
 const boardApi = window.DX3RDBoard;
 
 if (window.DX3RD_USE_PEER_SYNC && syncPanel && boardApi) {
@@ -39,7 +41,9 @@ async function initializeSupabaseSync() {
   let saving = false;
 
   syncPanel.hidden = false;
-  syncRoomCode.textContent = room.id.slice(0, 8).toUpperCase();
+  syncRoomCode.textContent = room.shareCode;
+  syncRoomCode.title = room.shareCode;
+  roomJoinInput.value = room.shareCode;
   updateStatus("接続中", "waiting");
 
   const topicHash = await hashRoomTopic(room.id, room.key);
@@ -91,6 +95,28 @@ async function initializeSupabaseSync() {
     } catch {
       updateStatus("コピー失敗", "error");
     }
+  });
+
+  joinRoomForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const destination = parseRoomCode(roomJoinInput.value);
+    if (destination == null) {
+      updateStatus("IDを確認", "error");
+      roomJoinInput.focus();
+      return;
+    }
+    if (destination.shareCode === room.shareCode) {
+      updateStatus("同期中", "connected");
+      return;
+    }
+
+    const params = new URLSearchParams();
+    params.set("room", destination.id);
+    if (destination.key !== destination.id) {
+      params.set("key", destination.key);
+    }
+    window.location.hash = params.toString();
+    window.location.reload();
   });
 
   async function loadInitialState() {
@@ -270,13 +296,17 @@ function resolveRoom() {
   let id = params.get("room");
   let key = params.get("key");
 
+  if (isValidToken(id) && !isValidToken(key)) {
+    key = id;
+  }
+
   if (!isValidToken(id) || !isValidToken(key)) {
-    id = randomToken(12);
-    key = randomToken(24);
+    id = randomToken(16);
+    key = id;
     const ownerStorageKey = `dx3rd-room-owner-${id}`;
     localStorage.setItem(ownerStorageKey, key);
     params.set("room", id);
-    params.set("key", key);
+    params.delete("key");
     window.history.replaceState(
       null,
       "",
@@ -284,7 +314,34 @@ function resolveRoom() {
     );
   }
 
-  return { id, key };
+  return {
+    id,
+    key,
+    shareCode: key === id ? id : `${id}.${key}`,
+  };
+}
+
+function parseRoomCode(value) {
+  const parts = value.trim().split(".");
+  if (parts.length === 1 && isValidToken(parts[0])) {
+    return {
+      id: parts[0],
+      key: parts[0],
+      shareCode: parts[0],
+    };
+  }
+  if (
+    parts.length === 2 &&
+    isValidToken(parts[0]) &&
+    isValidToken(parts[1])
+  ) {
+    return {
+      id: parts[0],
+      key: parts[1],
+      shareCode: `${parts[0]}.${parts[1]}`,
+    };
+  }
+  return null;
 }
 
 async function hashRoomTopic(roomId, roomKey) {

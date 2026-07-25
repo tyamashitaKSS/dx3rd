@@ -28,6 +28,20 @@
             <code id="syncRoomCode" class="sync-room-code"></code>
             <span id="syncParticipants" class="sync-participants">1人</span>
           </div>
+          <form id="joinRoomForm" class="sync-join-form">
+            <label for="roomJoinInput">ルームID</label>
+            <div class="sync-join-controls">
+              <input
+                id="roomJoinInput"
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                aria-describedby="roomJoinHelp"
+              />
+              <button type="submit">参加</button>
+            </div>
+            <p id="roomJoinHelp">同じルームIDを入力すると同じ盤面に接続します。</p>
+          </form>
           <button id="copyInviteLink" type="button" class="sync-copy-button">
             招待リンクをコピー
           </button>

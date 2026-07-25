@@ -20,6 +20,7 @@ test("combat board static assets are bundled for hosting", async () => {
   assert.match(html, /DX3rd Combat Board/);
   assert.match(html, /terrainLayer/);
   assert.match(html, /syncPanel/);
+  assert.match(html, /joinRoomForm/);
   assert.match(html, /type="module" src="sync\.js"/);
   assert.match(script, /REMOTE_STATE_ENDPOINT = "\/api\/board"/);
   assert.match(script, /initializeRemoteState\(\)/);
@@ -30,8 +31,11 @@ test("combat board static assets are bundled for hosting", async () => {
   assert.match(syncScript, /event: "board-state"/);
   assert.match(syncScript, /dx3rd-room-state-/);
   assert.match(syncScript, /copyInviteLink/);
+  assert.match(syncScript, /parseRoomCode/);
+  assert.match(syncScript, /key = id/);
   assert.match(styles, /\.terrain-layer/);
   assert.match(styles, /\.sync-status/);
+  assert.match(styles, /\.sync-join-form/);
 });
 
 test("GitHub Pages deploys the static combat board", async () => {

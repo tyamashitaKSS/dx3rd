@@ -189,6 +189,36 @@ h2 {
   width: 100%;
 }
 
+.sync-join-form {
+  display: grid;
+  gap: 6px;
+}
+
+.sync-join-form label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.sync-join-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.sync-join-controls input {
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+}
+
+.sync-join-form p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 .button-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
