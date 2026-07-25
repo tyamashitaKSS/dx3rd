@@ -59,6 +59,7 @@ let drag = null;
 let attentionTokenId = null;
 let attentionTimer = null;
 let capturedDamageExpression = null;
+let lastDamagePointerApplyAt = 0;
 const movementAnimations = new Map();
 let lastInitiativeClick = { id: null, at: 0 };
 let applyingSharedState = false;
@@ -1688,10 +1689,17 @@ tokenSizeInput.addEventListener("input", () => {
   }
 });
 
-applyDamageButton.addEventListener("pointerdown", () => {
+applyDamageButton.addEventListener("pointerdown", (event) => {
+  event.preventDefault();
   capturedDamageExpression = damageInput.value;
+  lastDamagePointerApplyAt = performance.now();
+  applyDamageExpression(capturedDamageExpression);
+  capturedDamageExpression = null;
 });
 applyDamageButton.addEventListener("click", () => {
+  if (performance.now() - lastDamagePointerApplyAt < 1000) {
+    return;
+  }
   applyDamageExpression(capturedDamageExpression ?? damageInput.value);
   capturedDamageExpression = null;
 });
