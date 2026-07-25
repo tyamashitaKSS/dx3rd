@@ -59,6 +59,7 @@ let drag = null;
 let attentionTokenId = null;
 let attentionTimer = null;
 let lastInitiativeClick = { id: null, at: 0 };
+let applyingSharedState = false;
 let undoStack = [];
 let redoStack = [];
 let historyTransaction = null;
@@ -198,8 +199,12 @@ function normalizeShape(item) {
 }
 
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  const serialized = JSON.stringify(state);
+  localStorage.setItem(STORAGE_KEY, serialized);
   queueRemoteSave();
+  if (!applyingSharedState) {
+    window.dispatchEvent(new CustomEvent("dx3rd-state-change", { detail: serialized }));
+  }
 }
 
 function queueRemoteSave() {
@@ -214,7 +219,7 @@ function queueRemoteSave() {
 }
 
 async function initializeRemoteState() {
-  if (!window.fetch || window.location.protocol === "file:") {
+  if (window.DX3RD_USE_PEER_SYNC || !window.fetch || window.location.protocol === "file:") {
     return;
   }
 
@@ -322,6 +327,25 @@ function reconcileSelectionAfterRemoteLoad() {
 function isEditorActive() {
   const activeElement = document.activeElement;
   return activeElement instanceof HTMLElement && Boolean(activeElement.closest("#editorForm"));
+}
+
+function applySharedState(candidate) {
+  if (drag || isEditorActive()) {
+    return false;
+  }
+
+  applyingSharedState = true;
+  try {
+    state = normalizeState(candidate);
+    reconcileSelectionAfterRemoteLoad();
+    undoStack = [];
+    redoStack = [];
+    historyTransaction = null;
+    render();
+  } finally {
+    applyingSharedState = false;
+  }
+  return true;
 }
 
 function serializeState() {
@@ -1674,6 +1698,11 @@ window.addEventListener("keydown", (event) => {
     event.preventDefault();
     deleteSelected();
   }
+});
+
+window.DX3RDBoard = Object.freeze({
+  applySharedState,
+  serializeState,
 });
 
 render();

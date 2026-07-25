@@ -126,6 +126,69 @@ h2 {
   line-height: 1.55;
 }
 
+.sync-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.sync-panel[hidden] {
+  display: none;
+}
+
+.sync-heading,
+.sync-room {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sync-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.sync-status::before {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #b58b24;
+  content: "";
+}
+
+.sync-status[data-state="connected"]::before {
+  background: #2d7a52;
+}
+
+.sync-status[data-state="error"]::before {
+  background: var(--accent);
+}
+
+.sync-room-code {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sync-participants {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.sync-copy-button {
+  width: 100%;
+}
+
 .button-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

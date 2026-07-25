@@ -19,6 +19,20 @@
           </div>
         </section>
 
+        <section id="syncPanel" class="panel sync-panel" hidden>
+          <div class="sync-heading">
+            <h2>共有ルーム</h2>
+            <span id="syncStatus" class="sync-status" aria-live="polite">接続中</span>
+          </div>
+          <div class="sync-room">
+            <code id="syncRoomCode" class="sync-room-code"></code>
+            <span id="syncParticipants" class="sync-participants">1人</span>
+          </div>
+          <button id="copyInviteLink" type="button" class="sync-copy-button">
+            招待リンクをコピー
+          </button>
+        </section>
+
         <section class="panel">
           <h2>追加</h2>
           <div class="button-grid">
@@ -166,6 +180,10 @@
       </section>
     </main>
 
+    <script>
+      window.DX3RD_USE_PEER_SYNC = window.location.hostname.endsWith(".github.io");
+    </script>
     <script src="app.js"></script>
+    <script type="module" src="sync.js"></script>
   </body>
 </html>
