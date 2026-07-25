@@ -22,3 +22,14 @@ test("combat board static assets are bundled for hosting", async () => {
   assert.match(script, /initializeRemoteState\(\)/);
   assert.match(styles, /\.terrain-layer/);
 });
+
+test("GitHub Pages deploys the static combat board", async () => {
+  const workflow = await readFile(
+    new URL("../.github/workflows/pages.yml", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(workflow, /actions\/configure-pages@v5/);
+  assert.match(workflow, /path: public\/board/);
+  assert.match(workflow, /actions\/deploy-pages@v4/);
+});
