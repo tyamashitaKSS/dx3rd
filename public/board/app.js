@@ -58,6 +58,8 @@ let activeTool = "select";
 let drag = null;
 let attentionTokenId = null;
 let attentionTimer = null;
+let capturedDamageExpression = null;
+const movementAnimations = new Map();
 let lastInitiativeClick = { id: null, at: 0 };
 let applyingSharedState = false;
 let undoStack = [];
@@ -336,7 +338,9 @@ function applySharedState(candidate) {
 
   applyingSharedState = true;
   try {
-    state = normalizeState(candidate);
+    const nextState = normalizeState(candidate);
+    queueRemoteMovementAnimations(state, nextState);
+    state = nextState;
     reconcileSelectionAfterRemoteLoad();
     undoStack = [];
     redoStack = [];
@@ -545,6 +549,7 @@ function renderEngages() {
     node.style.height = `${engage.radiusY * 2}px`;
     node.style.left = `${engage.x - engage.radiusX}px`;
     node.style.top = `${engage.y - engage.radiusY}px`;
+    applyMovementAnimation(node, "engage", engage.id);
 
     const label = document.createElement("div");
     label.className = "engage-label";
@@ -569,6 +574,7 @@ function renderTokens() {
     node.style.height = `${height}px`;
     node.style.left = `${token.x - width / 2}px`;
     node.style.top = `${token.y - height / 2}px`;
+    applyMovementAnimation(node, "token", token.id);
     const name = document.createElement("span");
     name.className = "token-name";
     name.textContent = token.name;
@@ -965,13 +971,13 @@ function parseDamageExpression(value) {
   return expression.match(/[+-]?\d+/g).reduce((total, part) => total + Number(part), 0);
 }
 
-function applyDamageExpression() {
+function applyDamageExpression(value = damageInput.value) {
   const item = getSelectedItem();
   if (!item || selected.type !== "token") {
     return;
   }
 
-  const delta = parseDamageExpression(damageInput.value);
+  const delta = parseDamageExpression(value);
   if (delta == null) {
     damageInput.select();
     return;
@@ -982,6 +988,59 @@ function applyDamageExpression() {
   commitHistoryTransaction();
   render();
   damageInput.focus();
+}
+
+function queueRemoteMovementAnimations(previousState, nextState) {
+  for (const type of ["engage", "token"]) {
+    const key = type === "engage" ? "engages" : "tokens";
+    const previousItems = new Map(
+      previousState[key].map((item) => [item.id, item]),
+    );
+    nextState[key].forEach((item) => {
+      const previous = previousItems.get(item.id);
+      if (!previous || (previous.x === item.x && previous.y === item.y)) {
+        return;
+      }
+      movementAnimations.set(`${type}:${item.id}`, {
+        mode: "move",
+        x: previous.x - item.x,
+        y: previous.y - item.y,
+      });
+    });
+  }
+}
+
+function queueReleaseAnimation(activeDrag) {
+  if (!activeDrag || !["engage", "token"].includes(activeDrag.type)) {
+    return;
+  }
+  movementAnimations.set(`${activeDrag.type}:${activeDrag.id}`, {
+    mode: "settle",
+    x: 0,
+    y: 0,
+  });
+  if (activeDrag.type === "engage") {
+    activeDrag.tokenStarts.forEach((token) => {
+      movementAnimations.set(`token:${token.id}`, {
+        mode: "settle",
+        x: 0,
+        y: 0,
+      });
+    });
+  }
+}
+
+function applyMovementAnimation(node, type, id) {
+  const animation = movementAnimations.get(`${type}:${id}`);
+  if (!animation) {
+    return;
+  }
+  movementAnimations.delete(`${type}:${id}`);
+  node.classList.add(
+    animation.mode === "move" ? "object-moving" : "object-settling",
+  );
+  node.style.setProperty("--move-x", `${animation.x}px`);
+  node.style.setProperty("--move-y", `${animation.y}px`);
 }
 
 function updateTools() {
@@ -1381,6 +1440,7 @@ function moveLineHandle(point) {
 }
 
 function endPointer() {
+  const completedDrag = drag;
   if (drag?.type === "draw") {
     const shape = state.shapes.find((item) => item.id === drag.id);
     if (shape && !isMeaningfulShape(shape)) {
@@ -1407,6 +1467,7 @@ function endPointer() {
     const engage = getContainingEngage(token);
     token.engageId = engage?.id ?? null;
   }
+  queueReleaseAnimation(completedDrag);
   drag = null;
   commitHistoryTransaction();
   render();
@@ -1627,7 +1688,13 @@ tokenSizeInput.addEventListener("input", () => {
   }
 });
 
-applyDamageButton.addEventListener("click", applyDamageExpression);
+applyDamageButton.addEventListener("pointerdown", () => {
+  capturedDamageExpression = damageInput.value;
+});
+applyDamageButton.addEventListener("click", () => {
+  applyDamageExpression(capturedDamageExpression ?? damageInput.value);
+  capturedDamageExpression = null;
+});
 clearDamageButton.addEventListener("click", () => {
   const item = getSelectedItem();
   if (item && selected.type === "token") {
@@ -1637,10 +1704,14 @@ clearDamageButton.addEventListener("click", () => {
     render();
   }
 });
+damageInput.addEventListener("input", () => {
+  capturedDamageExpression = damageInput.value;
+});
 damageInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
     applyDamageExpression();
+    capturedDamageExpression = null;
   }
 });
 

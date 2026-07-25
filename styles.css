@@ -898,6 +898,42 @@ input[type="range"] {
   user-select: none;
 }
 
+.engage.object-moving,
+.token.object-moving {
+  animation: board-object-move 260ms cubic-bezier(0.22, 0.8, 0.3, 1);
+  will-change: transform;
+}
+
+.engage.object-settling,
+.token.object-settling {
+  animation: board-object-settle 180ms ease-out;
+  will-change: transform;
+}
+
+@keyframes board-object-move {
+  from {
+    transform: translate(var(--move-x), var(--move-y)) scale(0.98);
+  }
+
+  to {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@keyframes board-object-settle {
+  0% {
+    transform: scale(1);
+  }
+
+  45% {
+    transform: scale(1.07);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
 .token-name {
   max-width: 48px;
   overflow-wrap: anywhere;
@@ -967,6 +1003,15 @@ input[type="range"] {
 
   70% {
     transform: scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .engage.object-moving,
+  .token.object-moving,
+  .engage.object-settling,
+  .token.object-settling {
+    animation: none;
   }
 }
 

@@ -22,12 +22,14 @@ test("combat board static assets are bundled for hosting", async () => {
   assert.match(html, /terrainLayer/);
   assert.match(html, /syncPanel/);
   assert.match(html, /joinRoomForm/);
-  assert.match(html, /styles\.css\?v=20260725-3/);
-  assert.match(html, /app\.js\?v=20260725-7/);
-  assert.match(html, /type="module" src="sync\.js\?v=20260725-7"/);
+  assert.match(html, /styles\.css\?v=20260725-8/);
+  assert.match(html, /app\.js\?v=20260725-8/);
+  assert.match(html, /type="module" src="sync\.js\?v=20260725-8"/);
   assert.match(script, /REMOTE_STATE_ENDPOINT = "\/api\/board"/);
   assert.match(script, /initializeRemoteState\(\)/);
   assert.match(script, /DX3RDBoard/);
+  assert.match(script, /capturedDamageExpression/);
+  assert.match(script, /queueRemoteMovementAnimations/);
   assert.match(syncScript, /createClient/);
   assert.match(syncScript, /dx3rd_load_board/);
   assert.match(syncScript, /dx3rd_apply_board_patch/);
@@ -43,6 +45,8 @@ test("combat board static assets are bundled for hosting", async () => {
   assert.match(styles, /\.terrain-layer/);
   assert.match(styles, /\.sync-status/);
   assert.match(styles, /\.sync-join-form/);
+  assert.match(styles, /@keyframes board-object-move/);
+  assert.match(styles, /prefers-reduced-motion/);
 });
 
 test("GitHub Pages deploys the static combat board", async () => {
