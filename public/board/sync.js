@@ -1,5 +1,4 @@
-import * as Y from "https://esm.sh/yjs@13.6.27";
-import { WebrtcProvider } from "https://esm.sh/y-webrtc@10.3.0?deps=yjs@13.6.27";
+import { joinRoom } from "https://esm.sh/trystero@0.24.0?bundle";
 
 const syncPanel = document.querySelector("#syncPanel");
 const syncStatus = document.querySelector("#syncStatus");
@@ -13,37 +12,43 @@ if (window.DX3RD_USE_PEER_SYNC && syncPanel && boardApi) {
 }
 
 function initializePeerSync() {
-  const room = resolveRoom();
-  const ownerStorageKey = `dx3rd-room-owner-${room.id}`;
-  const ownsRoom = localStorage.getItem(ownerStorageKey) === room.key;
-  const document = new Y.Doc();
-  const sharedBoard = document.getMap("board");
-  const localOrigin = Symbol("local-board-change");
+  const roomIdentity = resolveRoom();
+  const ownerStorageKey = `dx3rd-room-owner-${roomIdentity.id}`;
+  const ownsRoom = localStorage.getItem(ownerStorageKey) === roomIdentity.key;
+  const peerIds = new Set();
   let roomStateReady = ownsRoom;
-  let lastPublishedState = null;
+  let lastPublishedState = ownsRoom ? boardApi.serializeState() : null;
+  let pendingLocalState = null;
   let pendingRemoteState = null;
+  let publishTimer = null;
   let retryTimer = null;
 
   syncPanel.hidden = false;
-  syncRoomCode.textContent = room.id.slice(0, 8).toUpperCase();
+  syncRoomCode.textContent = roomIdentity.id.slice(0, 8).toUpperCase();
   updateStatus("接続待機", "waiting");
 
-  const provider = new WebrtcProvider(`dx3rd-board-${room.id}`, document, {
-    password: room.key,
-    maxConns: 20,
-    filterBcConns: false,
-  });
+  const room = joinRoom(
+    {
+      appId: "dx3rd-combat-board-v1",
+    },
+    `${roomIdentity.id}-${roomIdentity.key}`,
+  );
+  const [sendBoardState, onBoardState] = room.makeAction("board-state");
 
-  provider.awareness.setLocalStateField("participant", {
-    joinedAt: Date.now(),
-  });
-
-  provider.awareness.on("change", updateParticipantCount);
-  sharedBoard.observe((event) => {
-    if (event.transaction.origin === localOrigin) {
-      return;
+  room.onPeerJoin((peerId) => {
+    peerIds.add(peerId);
+    updateParticipantCount();
+    if (roomStateReady) {
+      sendBoardState(boardApi.serializeState(), peerId);
     }
-    const serialized = sharedBoard.get("state");
+  });
+
+  room.onPeerLeave((peerId) => {
+    peerIds.delete(peerId);
+    updateParticipantCount();
+  });
+
+  onBoardState((serialized) => {
     if (typeof serialized === "string") {
       receiveRemoteState(serialized);
     }
@@ -51,7 +56,7 @@ function initializePeerSync() {
 
   window.addEventListener("dx3rd-state-change", (event) => {
     if (roomStateReady && typeof event.detail === "string") {
-      publishState(event.detail);
+      queuePublish(event.detail);
     }
   });
 
@@ -69,19 +74,23 @@ function initializePeerSync() {
   });
 
   updateParticipantCount();
-  if (ownsRoom) {
-    publishState(boardApi.serializeState());
-  }
 
-  function publishState(serialized) {
-    if (serialized === lastPublishedState) {
+  function queuePublish(serialized) {
+    pendingLocalState = serialized;
+    if (publishTimer != null) {
       return;
     }
-    lastPublishedState = serialized;
-    document.transact(() => {
-      sharedBoard.set("state", serialized);
-    }, localOrigin);
-    updateStatus("同期中", "connected");
+    publishTimer = window.setTimeout(() => {
+      publishTimer = null;
+      if (pendingLocalState == null || pendingLocalState === lastPublishedState) {
+        pendingLocalState = null;
+        return;
+      }
+      lastPublishedState = pendingLocalState;
+      sendBoardState(pendingLocalState);
+      pendingLocalState = null;
+      updateStatus(peerIds.size > 0 ? "同期中" : "接続待機", peerIds.size > 0 ? "connected" : "waiting");
+    }, 70);
   }
 
   function receiveRemoteState(serialized) {
@@ -119,13 +128,9 @@ function initializePeerSync() {
   }
 
   function updateParticipantCount() {
-    const participantCount = Math.max(1, provider.awareness.getStates().size);
+    const participantCount = peerIds.size + 1;
     syncParticipants.textContent = `${participantCount}人`;
-    if (participantCount > 1 && sharedBoard.has("state")) {
-      updateStatus("同期中", "connected");
-    } else if (!sharedBoard.has("state")) {
-      updateStatus("ホスト待機", "waiting");
-    }
+    updateStatus(peerIds.size > 0 ? "同期中" : "接続待機", peerIds.size > 0 ? "connected" : "waiting");
   }
 
   function updateStatus(label, status) {
