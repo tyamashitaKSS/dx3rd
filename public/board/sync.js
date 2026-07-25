@@ -14,10 +14,12 @@ if (window.DX3RD_USE_PEER_SYNC && syncPanel && boardApi) {
 function initializePeerSync() {
   const roomIdentity = resolveRoom();
   const ownerStorageKey = `dx3rd-room-owner-${roomIdentity.id}`;
+  const roomStateStorageKey = `dx3rd-room-state-${roomIdentity.id}`;
   const ownsRoom = localStorage.getItem(ownerStorageKey) === roomIdentity.key;
+  const cachedRoomState = localStorage.getItem(roomStateStorageKey);
   const peerIds = new Set();
-  let roomStateReady = ownsRoom;
-  let lastPublishedState = ownsRoom ? boardApi.serializeState() : null;
+  let roomStateReady = ownsRoom || cachedRoomState != null;
+  let lastPublishedState = null;
   let pendingLocalState = null;
   let pendingRemoteState = null;
   let publishTimer = null;
@@ -74,6 +76,12 @@ function initializePeerSync() {
   });
 
   updateParticipantCount();
+  if (cachedRoomState != null) {
+    receiveRemoteState(cachedRoomState);
+  } else if (ownsRoom) {
+    lastPublishedState = boardApi.serializeState();
+    localStorage.setItem(roomStateStorageKey, lastPublishedState);
+  }
 
   function queuePublish(serialized) {
     pendingLocalState = serialized;
@@ -87,6 +95,7 @@ function initializePeerSync() {
         return;
       }
       lastPublishedState = pendingLocalState;
+      localStorage.setItem(roomStateStorageKey, pendingLocalState);
       sendBoardState(pendingLocalState);
       pendingLocalState = null;
       updateStatus(peerIds.size > 0 ? "同期中" : "接続待機", peerIds.size > 0 ? "connected" : "waiting");
@@ -108,7 +117,8 @@ function initializePeerSync() {
       pendingRemoteState = null;
       roomStateReady = true;
       lastPublishedState = boardApi.serializeState();
-      updateStatus("同期中", "connected");
+      localStorage.setItem(roomStateStorageKey, lastPublishedState);
+      updateStatus(peerIds.size > 0 ? "同期中" : "接続待機", peerIds.size > 0 ? "connected" : "waiting");
     } catch (error) {
       console.warn("Shared room state could not be applied.", error);
       updateStatus("同期エラー", "error");

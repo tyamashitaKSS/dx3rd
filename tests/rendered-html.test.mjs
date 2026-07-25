@@ -26,6 +26,7 @@ test("combat board static assets are bundled for hosting", async () => {
   assert.match(script, /DX3RDBoard/);
   assert.match(syncScript, /joinRoom/);
   assert.match(syncScript, /\[sendBoardState, onBoardState\]/);
+  assert.match(syncScript, /dx3rd-room-state-/);
   assert.match(syncScript, /copyInviteLink/);
   assert.match(styles, /\.terrain-layer/);
   assert.match(styles, /\.sync-status/);
