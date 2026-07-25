@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.110.8";
-import { mergeBoardStates } from "./sync-merge.js?v=20260725-4";
+import { createBoardPatch } from "./sync-merge.js?v=20260725-5";
 
 const SUPABASE_URL = "https://znyyanfyllcecwabxpir.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_Rey10satxUWgAodSyNhmIw_L83SF187";
@@ -36,6 +36,7 @@ async function initializeSupabaseSync() {
   let lastObservedLocalState = boardApi.serializeState();
   let lastRevision = 0;
   let pendingLocalState = null;
+  let pendingPatchBaseState = null;
   let pendingRemoteState = null;
   let saveTimer = null;
   let saveRetryTimer = null;
@@ -156,19 +157,10 @@ async function initializeSupabaseSync() {
   }
 
   function queueSave(serialized, immediate = false) {
-    if (
-      pendingLocalState != null &&
-      lastObservedLocalState != null &&
-      serialized !== lastObservedLocalState
-    ) {
-      pendingLocalState = mergeSerializedStates(
-        lastObservedLocalState,
-        serialized,
-        pendingLocalState,
-      );
-    } else {
-      pendingLocalState = serialized;
+    if (pendingLocalState == null) {
+      pendingPatchBaseState = lastObservedLocalState;
     }
+    pendingLocalState = serialized;
     lastObservedLocalState = serialized;
     window.clearTimeout(saveTimer);
     window.clearTimeout(saveRetryTimer);
@@ -186,27 +178,32 @@ async function initializeSupabaseSync() {
     }
 
     saving = true;
-    let inFlightState = null;
+    let inFlight = null;
     try {
       while (pendingLocalState != null) {
         const serialized = pendingLocalState;
+        const patchBaseSerialized =
+          pendingPatchBaseState ?? lastSerializedState ?? serialized;
         pendingLocalState = null;
-        inFlightState = serialized;
-        if (serialized === lastSerializedState && lastRevision > 0) {
-          inFlightState = null;
+        pendingPatchBaseState = null;
+        inFlight = { serialized, patchBaseSerialized };
+        const patch = createBoardPatch(
+          JSON.parse(patchBaseSerialized),
+          JSON.parse(serialized),
+        );
+        if (!patchHasChanges(patch) && lastRevision > 0) {
+          inFlight = null;
           continue;
         }
 
         updateStatus("保存中", "waiting");
-        const expectedRevision = lastRevision;
-        const baseSerializedAtSave = lastSerializedState;
         const { data, error } = await client.rpc(
-          "dx3rd_compare_and_save_board",
+          "dx3rd_apply_board_patch",
           {
             p_room_id: room.id,
             p_room_secret: room.key,
-            p_board_state: JSON.parse(serialized),
-            p_expected_revision: expectedRevision,
+            p_patch: patch,
+            p_initial_state: JSON.parse(serialized),
           },
         );
         if (error) {
@@ -218,34 +215,6 @@ async function initializeSupabaseSync() {
         const resultSerialized = result?.board_state
           ? JSON.stringify(result.board_state)
           : serialized;
-
-        if (!result?.saved) {
-          const remoteIsNewer =
-            resultRevision >= lastRevision || lastSerializedState == null;
-          const remoteSerialized = remoteIsNewer
-            ? resultSerialized
-            : lastSerializedState;
-          const remoteRevision = remoteIsNewer
-            ? resultRevision
-            : lastRevision;
-          const latestLocalState = pendingLocalState ?? serialized;
-          pendingLocalState = null;
-          const mergedSerialized = mergeSerializedStates(
-            baseSerializedAtSave ?? remoteSerialized,
-            latestLocalState,
-            remoteSerialized,
-          );
-
-          lastRevision = remoteRevision;
-          lastSerializedState = remoteSerialized;
-          roomStateReady = true;
-          applyBoardSnapshot(mergedSerialized, remoteRevision);
-          if (mergedSerialized !== remoteSerialized) {
-            pendingLocalState = mergedSerialized;
-          }
-          inFlightState = null;
-          continue;
-        }
 
         lastRevision = resultRevision;
         lastSerializedState = resultSerialized;
@@ -265,12 +234,15 @@ async function initializeSupabaseSync() {
             state: resultSerialized,
           },
         });
-        inFlightState = null;
+        inFlight = null;
       }
       updateStatus("同期中", "connected");
     } catch (error) {
-      if (pendingLocalState == null && inFlightState != null) {
-        pendingLocalState = inFlightState;
+      if (inFlight != null) {
+        if (pendingLocalState == null) {
+          pendingLocalState = inFlight.serialized;
+        }
+        pendingPatchBaseState = inFlight.patchBaseSerialized;
       }
       console.warn("Shared room could not be saved.", error);
       updateStatus("保存エラー", "error");
@@ -296,22 +268,10 @@ async function initializeSupabaseSync() {
     }
 
     if (!force && (saving || pendingLocalState != null)) {
-      const localSerialized = pendingLocalState ?? boardApi.serializeState();
-      const mergedSerialized = mergeSerializedStates(
-        lastSerializedState ?? serialized,
-        localSerialized,
-        serialized,
-      );
       lastRevision = revision;
       lastSerializedState = serialized;
       roomStateReady = true;
-      pendingLocalState =
-        mergedSerialized === serialized ? null : mergedSerialized;
-      applyBoardSnapshot(mergedSerialized, revision);
-      if (pendingLocalState != null && !saving) {
-        queueSave(pendingLocalState);
-      }
-      updateStatus("競合を統合", "waiting");
+      updateStatus("変更を統合中", "waiting");
       return;
     }
 
@@ -402,13 +362,14 @@ async function initializeSupabaseSync() {
   }
 }
 
-function mergeSerializedStates(baseSerialized, localSerialized, remoteSerialized) {
-  const merged = mergeBoardStates(
-    JSON.parse(baseSerialized),
-    JSON.parse(localSerialized),
-    JSON.parse(remoteSerialized),
+function patchHasChanges(patch) {
+  if (Object.keys(patch.scalars).length > 0) {
+    return true;
+  }
+  return Object.values(patch.collections).some(
+    (collection) =>
+      collection.upserts.length > 0 || collection.deletes.length > 0,
   );
-  return JSON.stringify(merged);
 }
 
 function resolveRoom() {

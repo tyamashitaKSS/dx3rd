@@ -1,5 +1,27 @@
 const ENTITY_COLLECTIONS = ["engages", "tokens", "shapes"];
 
+export function createBoardPatch(baseState, nextState) {
+  const base = isRecord(baseState) ? baseState : {};
+  const next = isRecord(nextState) ? nextState : {};
+  const patch = {
+    scalars: {},
+    collections: {},
+  };
+
+  for (const key of new Set([...Object.keys(base), ...Object.keys(next)])) {
+    if (ENTITY_COLLECTIONS.includes(key)) {
+      patch.collections[key] = createCollectionPatch(base[key], next[key]);
+    } else if (!deepEqual(base[key], next[key])) {
+      patch.scalars[key] = clone(next[key]);
+    }
+  }
+
+  for (const key of ENTITY_COLLECTIONS) {
+    patch.collections[key] ??= { upserts: [], deletes: [] };
+  }
+  return patch;
+}
+
 export function mergeBoardStates(baseState, localState, remoteState) {
   const base = isRecord(baseState) ? baseState : {};
   const local = isRecord(localState) ? localState : {};
@@ -27,6 +49,42 @@ export function mergeBoardStates(baseState, localState, remoteState) {
   }
 
   return merged;
+}
+
+function createCollectionPatch(baseItems, nextItems) {
+  const baseMap = toEntityMap(baseItems);
+  const nextMap = toEntityMap(nextItems);
+  const upserts = [];
+  const deletes = [];
+
+  for (const [id, nextItem] of nextMap) {
+    const baseItem = baseMap.get(id);
+    if (baseItem == null) {
+      upserts.push({ id, changes: clone(nextItem) });
+      continue;
+    }
+
+    const changes = {};
+    for (const key of new Set([
+      ...Object.keys(baseItem),
+      ...Object.keys(nextItem),
+    ])) {
+      if (!deepEqual(baseItem[key], nextItem[key])) {
+        changes[key] = clone(nextItem[key]);
+      }
+    }
+    if (Object.keys(changes).length > 0) {
+      upserts.push({ id, changes });
+    }
+  }
+
+  for (const id of baseMap.keys()) {
+    if (!nextMap.has(id)) {
+      deletes.push(id);
+    }
+  }
+
+  return { upserts, deletes };
 }
 
 function mergeEntityCollection(baseItems, localItems, remoteItems) {

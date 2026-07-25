@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { mergeBoardStates } from "../sync-merge.js";
+import { createBoardPatch, mergeBoardStates } from "../sync-merge.js";
 
 function createState() {
   return {
@@ -66,4 +66,39 @@ test("does not resurrect an object deleted during a concurrent edit", () => {
   const merged = mergeBoardStates(base, local, remote);
 
   assert.equal(merged.tokens.some((item) => item.id === "token-1"), false);
+});
+
+test("creates field-level patches without unchanged objects", () => {
+  const base = createState();
+  const next = structuredClone(base);
+  next.tokens[0].x = 175;
+  next.tokens[1].name = "PC Two";
+  next.round = 2;
+
+  const patch = createBoardPatch(base, next);
+
+  assert.deepEqual(patch.scalars, { round: 2 });
+  assert.deepEqual(patch.collections.tokens.upserts, [
+    { id: "token-1", changes: { x: 175 } },
+    { id: "token-2", changes: { name: "PC Two" } },
+  ]);
+  assert.deepEqual(patch.collections.tokens.deletes, []);
+  assert.deepEqual(patch.collections.engages.upserts, []);
+});
+
+test("creates add and delete operations", () => {
+  const base = createState();
+  const next = structuredClone(base);
+  next.tokens.shift();
+  next.shapes.push({ id: "shape-new", kind: "circle", x: 80, y: 90 });
+
+  const patch = createBoardPatch(base, next);
+
+  assert.deepEqual(patch.collections.tokens.deletes, ["token-1"]);
+  assert.deepEqual(patch.collections.shapes.upserts, [
+    {
+      id: "shape-new",
+      changes: { id: "shape-new", kind: "circle", x: 80, y: 90 },
+    },
+  ]);
 });
