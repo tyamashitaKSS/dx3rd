@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.110.8";
+import { mergeBoardStates } from "./sync-merge.js?v=20260725-4";
 
 const SUPABASE_URL = "https://znyyanfyllcecwabxpir.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_Rey10satxUWgAodSyNhmIw_L83SF187";
@@ -32,6 +33,7 @@ async function initializeSupabaseSync() {
 
   let roomStateReady = ownsRoom || cachedRoomState != null;
   let lastSerializedState = null;
+  let lastObservedLocalState = boardApi.serializeState();
   let lastRevision = 0;
   let pendingLocalState = null;
   let pendingRemoteState = null;
@@ -154,7 +156,20 @@ async function initializeSupabaseSync() {
   }
 
   function queueSave(serialized, immediate = false) {
-    pendingLocalState = serialized;
+    if (
+      pendingLocalState != null &&
+      lastObservedLocalState != null &&
+      serialized !== lastObservedLocalState
+    ) {
+      pendingLocalState = mergeSerializedStates(
+        lastObservedLocalState,
+        serialized,
+        pendingLocalState,
+      );
+    } else {
+      pendingLocalState = serialized;
+    }
+    lastObservedLocalState = serialized;
     window.clearTimeout(saveTimer);
     window.clearTimeout(saveRetryTimer);
     saveRetryTimer = null;
@@ -183,31 +198,73 @@ async function initializeSupabaseSync() {
         }
 
         updateStatus("保存中", "waiting");
-        const { data, error } = await client.rpc("dx3rd_save_board", {
-          p_room_id: room.id,
-          p_room_secret: room.key,
-          p_board_state: JSON.parse(serialized),
-        });
+        const expectedRevision = lastRevision;
+        const baseSerializedAtSave = lastSerializedState;
+        const { data, error } = await client.rpc(
+          "dx3rd_compare_and_save_board",
+          {
+            p_room_id: room.id,
+            p_room_secret: room.key,
+            p_board_state: JSON.parse(serialized),
+            p_expected_revision: expectedRevision,
+          },
+        );
         if (error) {
           throw error;
         }
 
         const result = Array.isArray(data) ? data[0] : null;
-        const savedRevision = Number(result?.saved_revision) || 0;
-        if (savedRevision >= lastRevision) {
-          lastRevision = savedRevision;
-          lastSerializedState = serialized;
+        const resultRevision = Number(result?.revision) || 0;
+        const resultSerialized = result?.board_state
+          ? JSON.stringify(result.board_state)
+          : serialized;
+
+        if (!result?.saved) {
+          const remoteIsNewer =
+            resultRevision >= lastRevision || lastSerializedState == null;
+          const remoteSerialized = remoteIsNewer
+            ? resultSerialized
+            : lastSerializedState;
+          const remoteRevision = remoteIsNewer
+            ? resultRevision
+            : lastRevision;
+          const latestLocalState = pendingLocalState ?? serialized;
+          pendingLocalState = null;
+          const mergedSerialized = mergeSerializedStates(
+            baseSerializedAtSave ?? remoteSerialized,
+            latestLocalState,
+            remoteSerialized,
+          );
+
+          lastRevision = remoteRevision;
+          lastSerializedState = remoteSerialized;
           roomStateReady = true;
-          localStorage.setItem(roomStateStorageKey, serialized);
-          await channel.send({
-            type: "broadcast",
-            event: "board-state",
-            payload: {
-              revision: savedRevision,
-              state: serialized,
-            },
-          });
+          applyBoardSnapshot(mergedSerialized, remoteRevision);
+          if (mergedSerialized !== remoteSerialized) {
+            pendingLocalState = mergedSerialized;
+          }
+          inFlightState = null;
+          continue;
         }
+
+        lastRevision = resultRevision;
+        lastSerializedState = resultSerialized;
+        roomStateReady = true;
+        localStorage.setItem(roomStateStorageKey, resultSerialized);
+        if (
+          pendingLocalState == null &&
+          boardApi.serializeState() !== resultSerialized
+        ) {
+          applyBoardSnapshot(resultSerialized, resultRevision);
+        }
+        await channel.send({
+          type: "broadcast",
+          event: "board-state",
+          payload: {
+            revision: resultRevision,
+            state: resultSerialized,
+          },
+        });
         inFlightState = null;
       }
       updateStatus("同期中", "connected");
@@ -238,10 +295,35 @@ async function initializeSupabaseSync() {
       return;
     }
 
+    if (!force && (saving || pendingLocalState != null)) {
+      const localSerialized = pendingLocalState ?? boardApi.serializeState();
+      const mergedSerialized = mergeSerializedStates(
+        lastSerializedState ?? serialized,
+        localSerialized,
+        serialized,
+      );
+      lastRevision = revision;
+      lastSerializedState = serialized;
+      roomStateReady = true;
+      pendingLocalState =
+        mergedSerialized === serialized ? null : mergedSerialized;
+      applyBoardSnapshot(mergedSerialized, revision);
+      if (pendingLocalState != null && !saving) {
+        queueSave(pendingLocalState);
+      }
+      updateStatus("競合を統合", "waiting");
+      return;
+    }
+
     try {
       const candidate = JSON.parse(serialized);
       if (!boardApi.applySharedState(candidate)) {
-        pendingRemoteState = { serialized, revision };
+        pendingRemoteState = {
+          serialized,
+          revision,
+          force,
+          mode: "remote",
+        };
         scheduleRetry();
         return;
       }
@@ -250,6 +332,7 @@ async function initializeSupabaseSync() {
       roomStateReady = true;
       lastRevision = Math.max(lastRevision, revision);
       lastSerializedState = boardApi.serializeState();
+      lastObservedLocalState = lastSerializedState;
       localStorage.setItem(roomStateStorageKey, lastSerializedState);
       updateStatus("同期中", "connected");
     } catch (error) {
@@ -265,12 +348,40 @@ async function initializeSupabaseSync() {
     retryTimer = window.setTimeout(() => {
       retryTimer = null;
       if (pendingRemoteState != null) {
-        receiveRemoteState(
-          pendingRemoteState.serialized,
-          pendingRemoteState.revision,
-        );
+        const pending = pendingRemoteState;
+        if (pending.mode === "apply") {
+          applyBoardSnapshot(pending.serialized, pending.revision);
+        } else {
+          receiveRemoteState(
+            pending.serialized,
+            pending.revision,
+            pending.force,
+          );
+        }
       }
     }, 250);
+  }
+
+  function applyBoardSnapshot(serialized, revision) {
+    try {
+      const candidate = JSON.parse(serialized);
+      if (!boardApi.applySharedState(candidate)) {
+        pendingRemoteState = {
+          serialized,
+          revision,
+          force: true,
+          mode: "apply",
+        };
+        scheduleRetry();
+        return;
+      }
+      pendingRemoteState = null;
+      lastObservedLocalState = boardApi.serializeState();
+      localStorage.setItem(roomStateStorageKey, lastObservedLocalState);
+    } catch (error) {
+      console.warn("Merged room state could not be applied.", error);
+      updateStatus("統合エラー", "error");
+    }
   }
 
   function updateParticipantCount() {
@@ -289,6 +400,15 @@ async function initializeSupabaseSync() {
     syncStatus.textContent = label;
     syncStatus.dataset.state = status;
   }
+}
+
+function mergeSerializedStates(baseSerialized, localSerialized, remoteSerialized) {
+  const merged = mergeBoardStates(
+    JSON.parse(baseSerialized),
+    JSON.parse(localSerialized),
+    JSON.parse(remoteSerialized),
+  );
+  return JSON.stringify(merged);
 }
 
 function resolveRoom() {

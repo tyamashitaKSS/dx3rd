@@ -411,7 +411,11 @@ function redo() {
 }
 
 function getNextId(prefix) {
-  const id = `${prefix}-${state.nextId}`;
+  const randomPart =
+    typeof globalThis.crypto?.randomUUID === "function"
+      ? globalThis.crypto.randomUUID()
+      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  const id = `${prefix}-${randomPart}`;
   state.nextId += 1;
   return id;
 }

@@ -10,10 +10,11 @@ test("root page redirects to the shared combat board", async () => {
 });
 
 test("combat board static assets are bundled for hosting", async () => {
-  const [html, script, syncScript, styles] = await Promise.all([
+  const [html, script, syncScript, mergeScript, styles] = await Promise.all([
     readFile(new URL("../public/board/index.html", import.meta.url), "utf8"),
     readFile(new URL("../public/board/app.js", import.meta.url), "utf8"),
     readFile(new URL("../public/board/sync.js", import.meta.url), "utf8"),
+    readFile(new URL("../public/board/sync-merge.js", import.meta.url), "utf8"),
     readFile(new URL("../public/board/styles.css", import.meta.url), "utf8"),
   ]);
 
@@ -22,18 +23,21 @@ test("combat board static assets are bundled for hosting", async () => {
   assert.match(html, /syncPanel/);
   assert.match(html, /joinRoomForm/);
   assert.match(html, /styles\.css\?v=20260725-3/);
-  assert.match(html, /type="module" src="sync\.js\?v=20260725-3"/);
+  assert.match(html, /app\.js\?v=20260725-4/);
+  assert.match(html, /type="module" src="sync\.js\?v=20260725-4"/);
   assert.match(script, /REMOTE_STATE_ENDPOINT = "\/api\/board"/);
   assert.match(script, /initializeRemoteState\(\)/);
   assert.match(script, /DX3RDBoard/);
   assert.match(syncScript, /createClient/);
   assert.match(syncScript, /dx3rd_load_board/);
-  assert.match(syncScript, /dx3rd_save_board/);
+  assert.match(syncScript, /dx3rd_compare_and_save_board/);
   assert.match(syncScript, /event: "board-state"/);
   assert.match(syncScript, /dx3rd-room-state-/);
   assert.match(syncScript, /copyInviteLink/);
   assert.match(syncScript, /parseRoomCode/);
   assert.match(syncScript, /key = id/);
+  assert.match(syncScript, /mergeBoardStates/);
+  assert.match(mergeScript, /mergeEntityCollection/);
   assert.match(styles, /\.terrain-layer/);
   assert.match(styles, /\.sync-status/);
   assert.match(styles, /\.sync-join-form/);
