@@ -1,5 +1,5 @@
-const MAX_PC = 5;
-const MAX_ENEMY = 10;
+const MAX_PC = 20;
+const MAX_ENEMY = 20;
 const TOKEN_SIZE = 58;
 const MIN_DRAW_SIZE = 10;
 const HISTORY_LIMIT = 50;

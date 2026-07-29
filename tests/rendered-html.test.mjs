@@ -23,9 +23,12 @@ test("combat board static assets are bundled for hosting", async () => {
   assert.match(html, /syncPanel/);
   assert.match(html, /joinRoomForm/);
   assert.match(html, /styles\.css\?v=20260725-8/);
-  assert.match(html, /app\.js\?v=20260725-9/);
-  assert.match(html, /type="module" src="sync\.js\?v=20260725-9"/);
+  assert.match(html, /PC・エネミーはそれぞれ最大20体/);
+  assert.match(html, /app\.js\?v=20260730-10/);
+  assert.match(html, /type="module" src="sync\.js\?v=20260730-10"/);
   assert.match(script, /REMOTE_STATE_ENDPOINT = "\/api\/board"/);
+  assert.match(script, /const MAX_PC = 20/);
+  assert.match(script, /const MAX_ENEMY = 20/);
   assert.match(script, /initializeRemoteState\(\)/);
   assert.match(script, /DX3RDBoard/);
   assert.match(script, /capturedDamageExpression/);
