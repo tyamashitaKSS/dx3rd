@@ -374,16 +374,99 @@ function applySharedState(candidate) {
   try {
     const nextState = normalizeState(candidate);
     queueRemoteMovementAnimations(state, nextState);
+    undoStack = rebaseHistoryStack(undoStack, state, nextState);
+    redoStack = rebaseHistoryStack(redoStack, state, nextState);
+    if (historyTransaction != null) {
+      historyTransaction = rebaseHistorySnapshot(historyTransaction, state, nextState);
+    }
     state = nextState;
     reconcileSelectionAfterRemoteLoad();
-    undoStack = [];
-    redoStack = [];
-    historyTransaction = null;
     render();
   } finally {
     applyingSharedState = false;
   }
   return true;
+}
+
+function rebaseHistoryStack(stack, currentState, nextState) {
+  return stack.map((snapshot) => rebaseHistorySnapshot(snapshot, currentState, nextState));
+}
+
+function rebaseHistorySnapshot(snapshot, currentState, nextState) {
+  try {
+    const historyState = JSON.parse(snapshot);
+    return JSON.stringify(applyRemoteDelta(historyState, currentState, nextState));
+  } catch {
+    return snapshot;
+  }
+}
+
+function applyRemoteDelta(historyValue, currentValue, nextValue, key = "") {
+  if (JSON.stringify(currentValue) === JSON.stringify(nextValue)) {
+    return structuredClone(historyValue);
+  }
+
+  if (["engages", "tokens", "shapes"].includes(key)) {
+    return rebaseEntityCollection(historyValue, currentValue, nextValue);
+  }
+
+  if (isPlainObject(currentValue) && isPlainObject(nextValue)) {
+    const result = isPlainObject(historyValue) ? structuredClone(historyValue) : {};
+    for (const property of new Set([...Object.keys(currentValue), ...Object.keys(nextValue)])) {
+      const rebased = applyRemoteDelta(
+        historyValue?.[property],
+        currentValue[property],
+        nextValue[property],
+        property,
+      );
+      if (rebased === undefined) {
+        delete result[property];
+      } else {
+        result[property] = rebased;
+      }
+    }
+    return result;
+  }
+
+  return structuredClone(nextValue);
+}
+
+function rebaseEntityCollection(historyItems, currentItems, nextItems) {
+  const historyMap = toHistoryEntityMap(historyItems);
+  const currentMap = toHistoryEntityMap(currentItems);
+  const nextMap = toHistoryEntityMap(nextItems);
+  const orderedIds = [
+    ...nextMap.keys(),
+    ...[...historyMap.keys()].filter((id) => !nextMap.has(id)),
+  ];
+
+  return orderedIds.flatMap((id) => {
+    const historyItem = historyMap.get(id);
+    const currentItem = currentMap.get(id);
+    const nextItem = nextMap.get(id);
+    if (currentItem == null && nextItem == null) {
+      return historyItem == null ? [] : [structuredClone(historyItem)];
+    }
+    if (currentItem == null) {
+      return [structuredClone(nextItem)];
+    }
+    if (nextItem == null || historyItem == null) {
+      return [];
+    }
+    return [applyRemoteDelta(historyItem, currentItem, nextItem)];
+  });
+}
+
+function toHistoryEntityMap(items) {
+  return new Map(
+    (Array.isArray(items) ? items : [])
+      .filter((item) => isPlainObject(item) && item.id != null)
+      .map((item) => [String(item.id), item]),
+  );
+}
+
+function isPlainObject(value) {
+  return value != null && typeof value === "object" && !Array.isArray(value);
 }
 
 function serializeState() {

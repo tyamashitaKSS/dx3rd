@@ -36,7 +36,7 @@ test("combat board static assets are bundled for hosting", async () => {
   assert.equal((html.match(/累積ダメージ/g) ?? []).length, 2);
   const contextMenuMarkup = html.slice(html.indexOf('id="tokenContextMenu"'), html.indexOf("<script>"));
   assert.doesNotMatch(contextMenuMarkup, /status-with-tooltip|data-description/);
-  assert.match(html, /app\.js\?v=20260810-15/);
+  assert.match(html, /app\.js\?v=20260810-16/);
   assert.match(html, /type="module" src="sync\.js\?v=20260810-14"/);
   assert.match(script, /REMOTE_STATE_ENDPOINT = "\/api\/board"/);
   assert.match(script, /const MAX_PC = 20/);
@@ -56,6 +56,8 @@ test("combat board static assets are bundled for hosting", async () => {
   assert.match(script, /capturedDamageExpression/);
   assert.match(script, /queueRemoteMovementAnimations/);
   assert.match(script, /event\.code === `Key\$\{key\.toUpperCase\(\)\}`/);
+  assert.match(script, /undoStack = rebaseHistoryStack\(undoStack, state, nextState\)/);
+  assert.doesNotMatch(script, /undoStack = \[\];\s*redoStack = \[\];\s*historyTransaction = null;/);
   assert.match(syncScript, /createClient/);
   assert.match(syncScript, /dx3rd_load_board/);
   assert.match(syncScript, /dx3rd_apply_board_patch/);
