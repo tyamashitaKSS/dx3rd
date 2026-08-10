@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import test from "node:test";
 
 test("root page redirects to the shared combat board", async () => {
@@ -89,4 +89,23 @@ test("GitHub Pages deploys the static combat board", async () => {
   assert.match(workflow, /actions\/configure-pages@v5/);
   assert.match(workflow, /path: public\/board/);
   assert.match(workflow, /actions\/deploy-pages@v4/);
+});
+
+test("Japanese manuals cover the main workflows and include screenshots", async () => {
+  const [manual, imageGuide, boardImage, settingsImage] = await Promise.all([
+    readFile(new URL("../docs/MANUAL.md", import.meta.url), "utf8"),
+    readFile(new URL("../docs/IMAGE_GUIDE.md", import.meta.url), "utf8"),
+    stat(new URL("../docs/assets/manual-board.png", import.meta.url)),
+    stat(new URL("../docs/assets/manual-settings.png", import.meta.url)),
+  ]);
+
+  assert.match(manual, /共有ルーム/);
+  assert.match(manual, /右クリック/);
+  assert.match(manual, /累積ダメージ/);
+  assert.match(manual, /邪毒/);
+  assert.match(manual, /assets\/manual-board\.png/);
+  assert.match(manual, /assets\/manual-settings\.png/);
+  assert.match(imageGuide, /画像クイックガイド/);
+  assert.ok(boardImage.size > 10_000);
+  assert.ok(settingsImage.size > 10_000);
 });
