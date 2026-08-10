@@ -2104,6 +2104,10 @@ lineLengthInput.addEventListener("input", () => {
   }
 });
 
+function isHistoryShortcut(event, key) {
+  return event.key.toLowerCase() === key || event.code === `Key${key.toUpperCase()}`;
+}
+
 window.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !tokenContextMenu.hidden) {
     event.preventDefault();
@@ -2111,12 +2115,12 @@ window.addEventListener("keydown", (event) => {
     return;
   }
   const modifier = event.ctrlKey || event.metaKey;
-  if (modifier && !event.altKey && event.key.toLowerCase() === "z") {
+  if (modifier && !event.altKey && isHistoryShortcut(event, "z")) {
     event.preventDefault();
     event.shiftKey ? redo() : undo();
     return;
   }
-  if (modifier && !event.altKey && event.key.toLowerCase() === "y") {
+  if (modifier && !event.altKey && isHistoryShortcut(event, "y")) {
     event.preventDefault();
     redo();
     return;
