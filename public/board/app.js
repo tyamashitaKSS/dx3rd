@@ -1442,6 +1442,7 @@ function moveLineHandle(point) {
 
 function endPointer() {
   const completedDrag = drag;
+  const completedDrawing = ["draw", "draw-terrain-rect", "draw-token-rect"].includes(completedDrag?.type);
   if (drag?.type === "draw") {
     const shape = state.shapes.find((item) => item.id === drag.id);
     if (shape && !isMeaningfulShape(shape)) {
@@ -1470,6 +1471,9 @@ function endPointer() {
   }
   queueReleaseAnimation(completedDrag);
   drag = null;
+  if (completedDrawing) {
+    activeTool = "select";
+  }
   commitHistoryTransaction();
   render();
 }
