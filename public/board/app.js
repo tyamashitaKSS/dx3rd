@@ -8,12 +8,12 @@ const LEGACY_STORAGE_KEY = "dx3rd-combat-board-v2";
 const OLDER_STORAGE_KEY = "dx3rd-combat-board-v1";
 const REMOTE_STATE_ENDPOINT = "/api/board";
 const BAD_STATUSES = Object.freeze([
-  { id: "pressure", name: "重圧" },
-  { id: "rigidity", name: "硬直" },
-  { id: "evil-reading", name: "邪読" },
-  { id: "dazed", name: "放心" },
-  { id: "berserk", name: "暴走" },
-  { id: "hatred", name: "憎悪" },
+  { id: "pressure", name: "重圧", description: "オートアクションのエフェクトを使用できない" },
+  { id: "rigidity", name: "硬直", description: "全力移動および戦闘移動が行えない" },
+  { id: "poison", name: "邪毒", description: "クリンナッププロセスごとに邪毒のランク×3のHPダメージを受ける" },
+  { id: "dazed", name: "放心", description: "すべての判定のダイスが2個減少する" },
+  { id: "berserk", name: "暴走", description: "ガードを含むリアクションとカバーリングができない" },
+  { id: "hatred", name: "憎悪", description: "指定されたキャラクターに対して攻撃を行う" },
 ]);
 
 const board = document.querySelector("#board");
@@ -36,6 +36,9 @@ const emptyEditor = document.querySelector("#emptyEditor");
 const nameInput = document.querySelector("#nameInput");
 const initiativeField = document.querySelector("#initiativeField");
 const initiativeInput = document.querySelector("#initiativeInput");
+const modifierField = document.querySelector("#modifierField");
+const diceModifierInput = document.querySelector("#diceModifierInput");
+const criticalModifierInput = document.querySelector("#criticalModifierInput");
 const tokenSizeField = document.querySelector("#tokenSizeField");
 const tokenSizeInput = document.querySelector("#tokenSizeInput");
 const damageField = document.querySelector("#damageField");
@@ -44,7 +47,7 @@ const damageInput = document.querySelector("#damageInput");
 const applyDamageButton = document.querySelector("#applyDamage");
 const clearDamageButton = document.querySelector("#clearDamage");
 const badStatusField = document.querySelector("#badStatusField");
-const badStatusInputs = [...document.querySelectorAll('input[name="badStatus"]')];
+const badStatusInputs = [...badStatusField.querySelectorAll('input[name="badStatus"]')];
 const radiusField = document.querySelector("#radiusField");
 const radiusInput = document.querySelector("#radiusInput");
 const engageRadiusXField = document.querySelector("#engageRadiusXField");
@@ -61,6 +64,20 @@ const advanceTurnButton = document.querySelector("#advanceTurn");
 const resetRoundButton = document.querySelector("#resetRound");
 const roundLabel = document.querySelector("#roundLabel");
 const currentTurnLabel = document.querySelector("#currentTurnLabel");
+const tokenContextMenu = document.querySelector("#tokenContextMenu");
+const contextTokenName = document.querySelector("#contextTokenName");
+const closeTokenContextMenuButton = document.querySelector("#closeTokenContextMenu");
+const contextInitiativeInput = document.querySelector("#contextInitiativeInput");
+const contextDiceModifierInput = document.querySelector("#contextDiceModifierInput");
+const contextCriticalModifierInput = document.querySelector("#contextCriticalModifierInput");
+const contextDamageValue = document.querySelector("#contextDamageValue");
+const contextDamageInput = document.querySelector("#contextDamageInput");
+const applyContextDamageButton = document.querySelector("#applyContextDamage");
+const clearContextDamageButton = document.querySelector("#clearContextDamage");
+const contextBadStatusInputs = [...tokenContextMenu.querySelectorAll('input[name="contextBadStatus"]')];
+document.querySelectorAll("[data-description]").forEach((element) => {
+  element.title = element.dataset.description;
+});
 
 let state = loadState();
 let selected = { type: "engage", id: state.engages[0]?.id ?? null };
@@ -69,6 +86,7 @@ let drag = null;
 let attentionTokenId = null;
 let attentionTimer = null;
 let capturedDamageExpression = null;
+let contextTokenId = null;
 let lastDamagePointerApplyAt = 0;
 const movementAnimations = new Map();
 let lastInitiativeClick = { id: null, at: 0 };
@@ -95,10 +113,10 @@ function createInitialState() {
       { id: "engage-2", name: "エネミー側", x: 560, y: 250, radiusX: 135, radiusY: 135 },
     ],
     tokens: [
-      { id: "token-3", type: "pc", shape: "circle", name: "PC1", initiative: 0, damage: 0, badStatuses: [], size: TOKEN_SIZE, x: 215, y: 235, engageId: "engage-1" },
-      { id: "token-4", type: "pc", shape: "circle", name: "PC2", initiative: 0, damage: 0, badStatuses: [], size: TOKEN_SIZE, x: 285, y: 235, engageId: "engage-1" },
-      { id: "token-5", type: "enemy", shape: "circle", name: "敵1", initiative: 0, damage: 0, badStatuses: [], size: TOKEN_SIZE, x: 525, y: 235, engageId: "engage-2" },
-      { id: "token-6", type: "enemy", shape: "circle", name: "敵2", initiative: 0, damage: 0, badStatuses: [], size: TOKEN_SIZE, x: 595, y: 235, engageId: "engage-2" },
+      { id: "token-3", type: "pc", shape: "circle", name: "PC1", initiative: 0, damage: 0, diceModifier: 0, criticalModifier: 0, badStatuses: [], size: TOKEN_SIZE, x: 215, y: 235, engageId: "engage-1" },
+      { id: "token-4", type: "pc", shape: "circle", name: "PC2", initiative: 0, damage: 0, diceModifier: 0, criticalModifier: 0, badStatuses: [], size: TOKEN_SIZE, x: 285, y: 235, engageId: "engage-1" },
+      { id: "token-5", type: "enemy", shape: "circle", name: "敵1", initiative: 0, damage: 0, diceModifier: 0, criticalModifier: 0, badStatuses: [], size: TOKEN_SIZE, x: 525, y: 235, engageId: "engage-2" },
+      { id: "token-6", type: "enemy", shape: "circle", name: "敵2", initiative: 0, damage: 0, diceModifier: 0, criticalModifier: 0, badStatuses: [], size: TOKEN_SIZE, x: 595, y: 235, engageId: "engage-2" },
     ],
     shapes: [],
     activeTurnTokenId: null,
@@ -143,6 +161,8 @@ function normalizeState(candidate) {
       name: item.name == null ? (item.type === "pc" ? "PC" : "敵") : String(item.name),
       initiative: normalizeInitiative(item.initiative),
       damage: normalizeDamage(item.damage),
+      diceModifier: normalizeModifier(item.diceModifier),
+      criticalModifier: normalizeModifier(item.criticalModifier),
       badStatuses: normalizeBadStatuses(item.badStatuses),
       size: normalizeTokenSize(item.size),
       width: normalizeTokenSide(item.width, 88),
@@ -441,6 +461,7 @@ function render() {
   renderEngages();
   renderTokens();
   renderEditor();
+  renderTokenContextMenu();
   renderRoster();
   updateCounts();
   renderInitiativeList();
@@ -597,14 +618,19 @@ function renderTokens() {
       damage.textContent = token.damage;
       node.append(damage);
     }
-    const statusNames = getBadStatusNames(token);
-    if (statusNames.length) {
+    const effects = getTokenEffects(token);
+    if (effects.length) {
       const statuses = document.createElement("span");
       statuses.className = "token-bad-statuses";
-      statusNames.forEach((statusName) => {
+      effects.forEach((effect) => {
         const badge = document.createElement("span");
-        badge.className = "token-bad-status";
-        badge.textContent = statusName;
+        badge.className = `token-bad-status ${effect.type}`;
+        badge.textContent = effect.label;
+        if (effect.description) {
+          badge.classList.add("status-with-tooltip");
+          badge.dataset.description = effect.description;
+          badge.title = effect.description;
+        }
         statuses.append(badge);
       });
       node.append(statuses);
@@ -632,6 +658,7 @@ function renderEditor() {
   nameInput.parentElement.hidden = !canEditName;
   nameInput.value = canEditName ? item.name : "";
   initiativeField.hidden = !isToken;
+  modifierField.hidden = !isToken;
   const canResizeEnemyCircle = isToken && item.type === "enemy" && item.shape !== "rect";
   tokenSizeField.hidden = !canResizeEnemyCircle;
   if (canResizeEnemyCircle) {
@@ -641,6 +668,8 @@ function renderEditor() {
   badStatusField.hidden = !isToken;
   if (isToken) {
     initiativeInput.value = item.initiative;
+    diceModifierInput.value = item.diceModifier;
+    criticalModifierInput.value = item.criticalModifier;
     damageValue.textContent = item.damage;
     damageInput.value = "";
     badStatusInputs.forEach((input) => {
@@ -788,12 +817,22 @@ function renderInitiativeList() {
     name.title = name.textContent;
     identity.append(name);
 
-    const statusNames = getBadStatusNames(token);
-    if (statusNames.length) {
+    const tokenEffects = getTokenEffects(token);
+    const effectLabels = tokenEffects.map((effect) => effect.label);
+    if (effectLabels.length) {
       const statuses = document.createElement("span");
       statuses.className = "initiative-statuses";
-      statuses.textContent = statusNames.join("・");
-      statuses.title = statusNames.join(" / ");
+      statuses.textContent = effectLabels.join("・");
+      const descriptions = tokenEffects
+        .filter((effect) => effect.description)
+        .map((effect) => `${effect.label}: ${effect.description}`);
+      if (descriptions.length) {
+        statuses.classList.add("status-with-tooltip");
+        statuses.dataset.description = descriptions.join(" / ");
+        statuses.title = statuses.dataset.description;
+      } else {
+        statuses.title = effectLabels.join(" / ");
+      }
       identity.append(statuses);
     }
 
@@ -971,14 +1010,40 @@ function normalizeDamage(value) {
   return Number.isFinite(number) ? Math.max(0, Math.trunc(number)) : 0;
 }
 
+function normalizeModifier(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? clamp(Math.trunc(number), -99, 99) : 0;
+}
+
 function normalizeBadStatuses(value) {
   const selectedStatuses = new Set(Array.isArray(value) ? value.map(String) : []);
+  if (selectedStatuses.has("evil-reading")) {
+    selectedStatuses.add("poison");
+  }
   return BAD_STATUSES.map((status) => status.id).filter((id) => selectedStatuses.has(id));
 }
 
-function getBadStatusNames(token) {
+function getBadStatuses(token) {
   const selectedStatuses = new Set(token.badStatuses ?? []);
-  return BAD_STATUSES.filter((status) => selectedStatuses.has(status.id)).map((status) => status.name);
+  return BAD_STATUSES.filter((status) => selectedStatuses.has(status.id));
+}
+
+function formatSignedModifier(value) {
+  return value > 0 ? `+${value}` : String(value);
+}
+
+function getTokenEffects(token) {
+  const effects = [];
+  if (token.diceModifier) {
+    effects.push({ type: "dice", label: `${formatSignedModifier(token.diceModifier)}D` });
+  }
+  if (token.criticalModifier) {
+    effects.push({ type: "critical", label: `C値${formatSignedModifier(token.criticalModifier)}` });
+  }
+  getBadStatuses(token).forEach((status) => {
+    effects.push({ type: "bad-status", label: status.name, description: status.description });
+  });
+  return effects;
 }
 
 function normalizeTokenSize(value) {
@@ -1146,6 +1211,78 @@ function selectTokenFromInitiative(id) {
   render();
 }
 
+function getContextToken() {
+  return state.tokens.find((token) => token.id === contextTokenId) ?? null;
+}
+
+function openTokenContextMenu(tokenId, clientX, clientY) {
+  const token = state.tokens.find((item) => item.id === tokenId);
+  if (!token) {
+    return;
+  }
+  selected = { type: "token", id: tokenId };
+  activeTool = "select";
+  contextTokenId = tokenId;
+  contextDamageInput.value = "";
+  render();
+  tokenContextMenu.hidden = false;
+  const menuRect = tokenContextMenu.getBoundingClientRect();
+  tokenContextMenu.style.left = `${clamp(clientX, 8, window.innerWidth - menuRect.width - 8)}px`;
+  tokenContextMenu.style.top = `${clamp(clientY, 8, window.innerHeight - menuRect.height - 8)}px`;
+}
+
+function closeTokenContextMenu() {
+  contextTokenId = null;
+  tokenContextMenu.hidden = true;
+}
+
+function renderTokenContextMenu() {
+  if (!contextTokenId) {
+    return;
+  }
+  const token = getContextToken();
+  if (!token) {
+    closeTokenContextMenu();
+    return;
+  }
+  contextTokenName.textContent = token.name || "名称なし";
+  contextInitiativeInput.value = token.initiative;
+  contextDiceModifierInput.value = token.diceModifier;
+  contextCriticalModifierInput.value = token.criticalModifier;
+  contextDamageValue.textContent = token.damage;
+  contextBadStatusInputs.forEach((input) => {
+    input.checked = token.badStatuses.includes(input.value);
+  });
+}
+
+function updateContextToken(callback) {
+  const token = getContextToken();
+  if (!token) {
+    closeTokenContextMenu();
+    return;
+  }
+  changeWithHistory(() => callback(token));
+  render();
+}
+
+function applyContextDamage() {
+  const token = getContextToken();
+  if (!token) {
+    closeTokenContextMenu();
+    return;
+  }
+  const delta = parseDamageExpression(contextDamageInput.value);
+  if (delta == null) {
+    contextDamageInput.select();
+    return;
+  }
+  updateContextToken((item) => {
+    item.damage = normalizeDamage(item.damage + delta);
+  });
+  contextDamageInput.value = "";
+  contextDamageInput.focus();
+}
+
 function getBoardPoint(event) {
   const rect = board.getBoundingClientRect();
   return {
@@ -1195,6 +1332,8 @@ function addToken(type) {
     name: type === "pc" ? `PC${current + 1}` : `敵${current + 1}`,
     initiative: 0,
     damage: 0,
+    diceModifier: 0,
+    criticalModifier: 0,
     badStatuses: [],
     size: TOKEN_SIZE,
     x: engage ? engage.x + Math.cos(angle) * spread : 120 + current * 48,
@@ -1289,6 +1428,8 @@ function startRectangleEnemy(point) {
     name: `敵${current + 1}`,
     initiative: 0,
     damage: 0,
+    diceModifier: 0,
+    criticalModifier: 0,
     badStatuses: [],
     size: TOKEN_SIZE,
     width: 1,
@@ -1678,9 +1819,75 @@ importButton.addEventListener("click", importBoardFile);
 importFile.addEventListener("change", handleImportFile);
 
 board.addEventListener("pointerdown", startPointer);
+document.addEventListener("contextmenu", (event) => {
+  const target = event.target.closest('[data-type="token"][data-id]');
+  if (!target) {
+    return;
+  }
+  event.preventDefault();
+  openTokenContextMenu(target.dataset.id, event.clientX, event.clientY);
+});
 window.addEventListener("pointermove", movePointer);
 window.addEventListener("pointerup", endPointer);
 window.addEventListener("pointercancel", endPointer);
+document.addEventListener("pointerdown", (event) => {
+  if (!tokenContextMenu.hidden && event.button === 0 && !tokenContextMenu.contains(event.target)) {
+    closeTokenContextMenu();
+  }
+});
+
+closeTokenContextMenuButton.addEventListener("click", closeTokenContextMenu);
+contextInitiativeInput.addEventListener("input", () => {
+  if (contextInitiativeInput.value === "") {
+    return;
+  }
+  updateContextToken((token) => {
+    token.initiative = normalizeInitiative(contextInitiativeInput.value);
+  });
+  contextInitiativeInput.focus();
+});
+contextDiceModifierInput.addEventListener("input", () => {
+  if (contextDiceModifierInput.value === "") {
+    return;
+  }
+  updateContextToken((token) => {
+    token.diceModifier = normalizeModifier(contextDiceModifierInput.value);
+  });
+  contextDiceModifierInput.focus();
+});
+contextCriticalModifierInput.addEventListener("input", () => {
+  if (contextCriticalModifierInput.value === "") {
+    return;
+  }
+  updateContextToken((token) => {
+    token.criticalModifier = normalizeModifier(contextCriticalModifierInput.value);
+  });
+  contextCriticalModifierInput.focus();
+});
+applyContextDamageButton.addEventListener("click", applyContextDamage);
+clearContextDamageButton.addEventListener("click", () => {
+  updateContextToken((token) => {
+    token.damage = 0;
+  });
+});
+contextDamageInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    applyContextDamage();
+  }
+});
+contextBadStatusInputs.forEach((input) => {
+  input.addEventListener("change", () => {
+    updateContextToken((token) => {
+      token.badStatuses = normalizeBadStatuses(
+        contextBadStatusInputs
+          .filter((statusInput) => statusInput.checked)
+          .map((statusInput) => statusInput.value),
+      );
+    });
+    input.focus();
+  });
+});
 
 roster.addEventListener("click", (event) => {
   const row = event.target.closest("[data-type][data-id]");
@@ -1724,11 +1931,38 @@ nameInput.addEventListener("input", () => {
 });
 
 initiativeInput.addEventListener("input", () => {
+  if (initiativeInput.value === "") {
+    return;
+  }
   const item = getSelectedItem();
   if (item && selected.type === "token") {
     item.initiative = normalizeInitiative(initiativeInput.value);
     render();
     initiativeInput.focus();
+  }
+});
+
+diceModifierInput.addEventListener("input", () => {
+  if (diceModifierInput.value === "") {
+    return;
+  }
+  const item = getSelectedItem();
+  if (item && selected.type === "token") {
+    item.diceModifier = normalizeModifier(diceModifierInput.value);
+    render();
+    diceModifierInput.focus();
+  }
+});
+
+criticalModifierInput.addEventListener("input", () => {
+  if (criticalModifierInput.value === "") {
+    return;
+  }
+  const item = getSelectedItem();
+  if (item && selected.type === "token") {
+    item.criticalModifier = normalizeModifier(criticalModifierInput.value);
+    render();
+    criticalModifierInput.focus();
   }
 });
 
@@ -1838,6 +2072,11 @@ lineLengthInput.addEventListener("input", () => {
 });
 
 window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !tokenContextMenu.hidden) {
+    event.preventDefault();
+    closeTokenContextMenu();
+    return;
+  }
   const modifier = event.ctrlKey || event.metaKey;
   if (modifier && !event.altKey && event.key.toLowerCase() === "z") {
     event.preventDefault();

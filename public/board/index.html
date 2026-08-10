@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DX3rd Combat Board</title>
-    <link rel="stylesheet" href="styles.css?v=20260810-12" />
+    <link rel="stylesheet" href="styles.css?v=20260810-13" />
   </head>
   <body>
     <main class="app-shell">
@@ -86,6 +86,16 @@
               行動値
               <input id="initiativeInput" type="number" min="-99" max="999" step="1" inputmode="numeric" />
             </label>
+            <div id="modifierField" class="modifier-editor">
+              <label>
+                ダイス補正
+                <input id="diceModifierInput" type="number" min="-99" max="99" step="1" inputmode="numeric" />
+              </label>
+              <label>
+                C値補正
+                <input id="criticalModifierInput" type="number" min="-99" max="99" step="1" inputmode="numeric" />
+              </label>
+            </div>
             <label id="tokenSizeField">
               エネミー円サイズ
               <input id="tokenSizeInput" type="range" min="40" max="180" step="2" />
@@ -107,27 +117,27 @@
             <fieldset id="badStatusField" class="bad-status-editor">
               <legend>バッドステータス</legend>
               <div class="bad-status-options">
-                <label class="bad-status-option" title="オートアクションのエフェクトを使用できない">
+                <label class="bad-status-option status-with-tooltip" data-description="オートアクションのエフェクトを使用できない">
                   <input type="checkbox" name="badStatus" value="pressure" />
                   <span>重圧</span>
                 </label>
-                <label class="bad-status-option" title="全力移動および戦闘移動が行えない">
+                <label class="bad-status-option status-with-tooltip" data-description="全力移動および戦闘移動が行えない">
                   <input type="checkbox" name="badStatus" value="rigidity" />
                   <span>硬直</span>
                 </label>
-                <label class="bad-status-option" title="クリンナッププロセスごとにランク×3のHPダメージを受ける">
-                  <input type="checkbox" name="badStatus" value="evil-reading" />
-                  <span>邪読</span>
+                <label class="bad-status-option status-with-tooltip" data-description="クリンナッププロセスごとに邪毒のランク×3のHPダメージを受ける">
+                  <input type="checkbox" name="badStatus" value="poison" />
+                  <span>邪毒</span>
                 </label>
-                <label class="bad-status-option" title="すべての判定のダイスが2個減少する">
+                <label class="bad-status-option status-with-tooltip" data-description="すべての判定のダイスが2個減少する">
                   <input type="checkbox" name="badStatus" value="dazed" />
                   <span>放心</span>
                 </label>
-                <label class="bad-status-option" title="リアクションとカバーリングができない">
+                <label class="bad-status-option status-with-tooltip" data-description="ガードを含むリアクションとカバーリングができない">
                   <input type="checkbox" name="badStatus" value="berserk" />
                   <span>暴走</span>
                 </label>
-                <label class="bad-status-option" title="指定されたキャラクターに対して攻撃を行う">
+                <label class="bad-status-option status-with-tooltip" data-description="指定されたキャラクターに対して攻撃を行う">
                   <input type="checkbox" name="badStatus" value="hatred" />
                   <span>憎悪</span>
                 </label>
@@ -223,10 +233,74 @@
       </section>
     </main>
 
+    <div id="tokenContextMenu" class="token-context-menu" role="dialog" aria-label="駒の設定" hidden>
+      <div class="context-menu-heading">
+        <strong id="contextTokenName"></strong>
+        <button id="closeTokenContextMenu" class="context-menu-close" type="button" title="閉じる" aria-label="閉じる">×</button>
+      </div>
+      <div class="context-value-grid">
+        <label>
+          行動値
+          <input id="contextInitiativeInput" type="number" min="-99" max="999" step="1" inputmode="numeric" />
+        </label>
+        <label>
+          ダイス補正
+          <input id="contextDiceModifierInput" type="number" min="-99" max="99" step="1" inputmode="numeric" />
+        </label>
+        <label>
+          C値補正
+          <input id="contextCriticalModifierInput" type="number" min="-99" max="99" step="1" inputmode="numeric" />
+        </label>
+      </div>
+      <div class="context-damage-editor">
+        <div class="damage-current">
+          <span>ダメージ</span>
+          <strong id="contextDamageValue">0</strong>
+        </div>
+        <label>
+          加減算
+          <input id="contextDamageInput" type="text" inputmode="numeric" autocomplete="off" placeholder="+10 / -5 / 10+3-2" />
+        </label>
+        <div class="damage-actions">
+          <button id="applyContextDamage" type="button">適用</button>
+          <button id="clearContextDamage" type="button" class="ghost">0に戻す</button>
+        </div>
+      </div>
+      <fieldset class="bad-status-editor context-bad-status-editor">
+        <legend>バッドステータス</legend>
+        <div class="bad-status-options">
+          <label class="bad-status-option status-with-tooltip" data-description="オートアクションのエフェクトを使用できない">
+            <input type="checkbox" name="contextBadStatus" value="pressure" />
+            <span>重圧</span>
+          </label>
+          <label class="bad-status-option status-with-tooltip" data-description="全力移動および戦闘移動が行えない">
+            <input type="checkbox" name="contextBadStatus" value="rigidity" />
+            <span>硬直</span>
+          </label>
+          <label class="bad-status-option status-with-tooltip" data-description="クリンナッププロセスごとに邪毒のランク×3のHPダメージを受ける">
+            <input type="checkbox" name="contextBadStatus" value="poison" />
+            <span>邪毒</span>
+          </label>
+          <label class="bad-status-option status-with-tooltip" data-description="すべての判定のダイスが2個減少する">
+            <input type="checkbox" name="contextBadStatus" value="dazed" />
+            <span>放心</span>
+          </label>
+          <label class="bad-status-option status-with-tooltip" data-description="ガードを含むリアクションとカバーリングができない">
+            <input type="checkbox" name="contextBadStatus" value="berserk" />
+            <span>暴走</span>
+          </label>
+          <label class="bad-status-option status-with-tooltip" data-description="指定されたキャラクターに対して攻撃を行う">
+            <input type="checkbox" name="contextBadStatus" value="hatred" />
+            <span>憎悪</span>
+          </label>
+        </div>
+      </fieldset>
+    </div>
+
     <script>
       window.DX3RD_USE_PEER_SYNC = window.location.hostname.endsWith(".github.io");
     </script>
-    <script src="app.js?v=20260810-12"></script>
-    <script type="module" src="sync.js?v=20260810-12"></script>
+    <script src="app.js?v=20260810-13"></script>
+    <script type="module" src="sync.js?v=20260810-13"></script>
   </body>
 </html>

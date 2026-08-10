@@ -57,6 +57,23 @@ test("keeps bad statuses when another user updates damage", () => {
   assert.equal(merged.tokens[0].damage, 18);
 });
 
+test("keeps dice and critical modifiers with a simultaneous initiative update", () => {
+  const base = createState();
+  base.tokens[0].diceModifier = 0;
+  base.tokens[0].criticalModifier = 0;
+  const local = structuredClone(base);
+  const remote = structuredClone(base);
+  local.tokens[0].diceModifier = 3;
+  local.tokens[0].criticalModifier = -1;
+  remote.tokens[0].initiative = 12;
+
+  const merged = mergeBoardStates(base, local, remote);
+
+  assert.equal(merged.tokens[0].diceModifier, 3);
+  assert.equal(merged.tokens[0].criticalModifier, -1);
+  assert.equal(merged.tokens[0].initiative, 12);
+});
+
 test("keeps additions from both users", () => {
   const base = createState();
   const local = structuredClone(base);
