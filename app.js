@@ -10,7 +10,7 @@ const REMOTE_STATE_ENDPOINT = "/api/board";
 const BAD_STATUSES = Object.freeze([
   { id: "pressure", name: "重圧", description: "オートアクションのエフェクトを使用できない" },
   { id: "rigidity", name: "硬直", description: "全力移動および戦闘移動が行えない" },
-  { id: "poison", name: "邪毒", description: "クリンナッププロセスごとに邪毒のランク×3のHPダメージを受ける" },
+  { id: "poison", name: "邪毒", description: "クリンナッププロセスごとに邪毒のLv×3のHPダメージを受ける" },
   { id: "dazed", name: "放心", description: "すべての判定のダイスが2個減少する" },
   { id: "berserk", name: "暴走", description: "ガードを含むリアクションとカバーリングができない" },
   { id: "hatred", name: "憎悪", description: "指定されたキャラクターに対して攻撃を行う" },
@@ -48,6 +48,8 @@ const applyDamageButton = document.querySelector("#applyDamage");
 const clearDamageButton = document.querySelector("#clearDamage");
 const badStatusField = document.querySelector("#badStatusField");
 const badStatusInputs = [...badStatusField.querySelectorAll('input[name="badStatus"]')];
+const poisonLevelField = document.querySelector("#poisonLevelField");
+const poisonLevelInput = document.querySelector("#poisonLevelInput");
 const radiusField = document.querySelector("#radiusField");
 const radiusInput = document.querySelector("#radiusInput");
 const engageRadiusXField = document.querySelector("#engageRadiusXField");
@@ -75,9 +77,8 @@ const contextDamageInput = document.querySelector("#contextDamageInput");
 const applyContextDamageButton = document.querySelector("#applyContextDamage");
 const clearContextDamageButton = document.querySelector("#clearContextDamage");
 const contextBadStatusInputs = [...tokenContextMenu.querySelectorAll('input[name="contextBadStatus"]')];
-document.querySelectorAll("[data-description]").forEach((element) => {
-  element.title = element.dataset.description;
-});
+const contextPoisonLevelField = document.querySelector("#contextPoisonLevelField");
+const contextPoisonLevelInput = document.querySelector("#contextPoisonLevelInput");
 
 let state = loadState();
 let selected = { type: "engage", id: state.engages[0]?.id ?? null };
@@ -113,10 +114,10 @@ function createInitialState() {
       { id: "engage-2", name: "エネミー側", x: 560, y: 250, radiusX: 135, radiusY: 135 },
     ],
     tokens: [
-      { id: "token-3", type: "pc", shape: "circle", name: "PC1", initiative: 0, damage: 0, diceModifier: 0, criticalModifier: 0, badStatuses: [], size: TOKEN_SIZE, x: 215, y: 235, engageId: "engage-1" },
-      { id: "token-4", type: "pc", shape: "circle", name: "PC2", initiative: 0, damage: 0, diceModifier: 0, criticalModifier: 0, badStatuses: [], size: TOKEN_SIZE, x: 285, y: 235, engageId: "engage-1" },
-      { id: "token-5", type: "enemy", shape: "circle", name: "敵1", initiative: 0, damage: 0, diceModifier: 0, criticalModifier: 0, badStatuses: [], size: TOKEN_SIZE, x: 525, y: 235, engageId: "engage-2" },
-      { id: "token-6", type: "enemy", shape: "circle", name: "敵2", initiative: 0, damage: 0, diceModifier: 0, criticalModifier: 0, badStatuses: [], size: TOKEN_SIZE, x: 595, y: 235, engageId: "engage-2" },
+      { id: "token-3", type: "pc", shape: "circle", name: "PC1", initiative: 0, damage: 0, diceModifier: 0, criticalModifier: 0, badStatuses: [], poisonLevel: 1, size: TOKEN_SIZE, x: 215, y: 235, engageId: "engage-1" },
+      { id: "token-4", type: "pc", shape: "circle", name: "PC2", initiative: 0, damage: 0, diceModifier: 0, criticalModifier: 0, badStatuses: [], poisonLevel: 1, size: TOKEN_SIZE, x: 285, y: 235, engageId: "engage-1" },
+      { id: "token-5", type: "enemy", shape: "circle", name: "敵1", initiative: 0, damage: 0, diceModifier: 0, criticalModifier: 0, badStatuses: [], poisonLevel: 1, size: TOKEN_SIZE, x: 525, y: 235, engageId: "engage-2" },
+      { id: "token-6", type: "enemy", shape: "circle", name: "敵2", initiative: 0, damage: 0, diceModifier: 0, criticalModifier: 0, badStatuses: [], poisonLevel: 1, size: TOKEN_SIZE, x: 595, y: 235, engageId: "engage-2" },
     ],
     shapes: [],
     activeTurnTokenId: null,
@@ -164,6 +165,7 @@ function normalizeState(candidate) {
       diceModifier: normalizeModifier(item.diceModifier),
       criticalModifier: normalizeModifier(item.criticalModifier),
       badStatuses: normalizeBadStatuses(item.badStatuses),
+      poisonLevel: normalizePoisonLevel(item.poisonLevel),
       size: normalizeTokenSize(item.size),
       width: normalizeTokenSide(item.width, 88),
       height: normalizeTokenSide(item.height, 58),
@@ -629,7 +631,6 @@ function renderTokens() {
         if (effect.description) {
           badge.classList.add("status-with-tooltip");
           badge.dataset.description = effect.description;
-          badge.title = effect.description;
         }
         statuses.append(badge);
       });
@@ -666,6 +667,7 @@ function renderEditor() {
   }
   damageField.hidden = !isToken;
   badStatusField.hidden = !isToken;
+  poisonLevelField.hidden = !isToken || !item.badStatuses?.includes("poison");
   if (isToken) {
     initiativeInput.value = item.initiative;
     diceModifierInput.value = item.diceModifier;
@@ -675,6 +677,7 @@ function renderEditor() {
     badStatusInputs.forEach((input) => {
       input.checked = item.badStatuses.includes(input.value);
     });
+    poisonLevelInput.value = item.poisonLevel;
   }
   radiusField.hidden = !isRadiusTarget;
   if (isRadiusTarget) {
@@ -829,7 +832,6 @@ function renderInitiativeList() {
       if (descriptions.length) {
         statuses.classList.add("status-with-tooltip");
         statuses.dataset.description = descriptions.join(" / ");
-        statuses.title = statuses.dataset.description;
       } else {
         statuses.title = effectLabels.join(" / ");
       }
@@ -1015,6 +1017,11 @@ function normalizeModifier(value) {
   return Number.isFinite(number) ? clamp(Math.trunc(number), -99, 99) : 0;
 }
 
+function normalizePoisonLevel(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? clamp(Math.trunc(number), 1, 99) : 1;
+}
+
 function normalizeBadStatuses(value) {
   const selectedStatuses = new Set(Array.isArray(value) ? value.map(String) : []);
   if (selectedStatuses.has("evil-reading")) {
@@ -1041,7 +1048,8 @@ function getTokenEffects(token) {
     effects.push({ type: "critical", label: `C値${formatSignedModifier(token.criticalModifier)}` });
   }
   getBadStatuses(token).forEach((status) => {
-    effects.push({ type: "bad-status", label: status.name, description: status.description });
+    const label = status.id === "poison" ? `${status.name} Lv${normalizePoisonLevel(token.poisonLevel)}` : status.name;
+    effects.push({ type: "bad-status", label, description: status.description });
   });
   return effects;
 }
@@ -1250,6 +1258,8 @@ function renderTokenContextMenu() {
   contextDiceModifierInput.value = token.diceModifier;
   contextCriticalModifierInput.value = token.criticalModifier;
   contextDamageValue.textContent = token.damage;
+  contextPoisonLevelField.hidden = !token.badStatuses.includes("poison");
+  contextPoisonLevelInput.value = token.poisonLevel;
   contextBadStatusInputs.forEach((input) => {
     input.checked = token.badStatuses.includes(input.value);
   });
@@ -1335,6 +1345,7 @@ function addToken(type) {
     diceModifier: 0,
     criticalModifier: 0,
     badStatuses: [],
+    poisonLevel: 1,
     size: TOKEN_SIZE,
     x: engage ? engage.x + Math.cos(angle) * spread : 120 + current * 48,
     y: engage ? engage.y + Math.sin(angle) * spread : 120,
@@ -1431,6 +1442,7 @@ function startRectangleEnemy(point) {
     diceModifier: 0,
     criticalModifier: 0,
     badStatuses: [],
+    poisonLevel: 1,
     size: TOKEN_SIZE,
     width: 1,
     height: 1,
@@ -1864,6 +1876,15 @@ contextCriticalModifierInput.addEventListener("input", () => {
   });
   contextCriticalModifierInput.focus();
 });
+contextPoisonLevelInput.addEventListener("input", () => {
+  if (contextPoisonLevelInput.value === "") {
+    return;
+  }
+  updateContextToken((token) => {
+    token.poisonLevel = normalizePoisonLevel(contextPoisonLevelInput.value);
+  });
+  contextPoisonLevelInput.focus();
+});
 applyContextDamageButton.addEventListener("click", applyContextDamage);
 clearContextDamageButton.addEventListener("click", () => {
   updateContextToken((token) => {
@@ -1963,6 +1984,18 @@ criticalModifierInput.addEventListener("input", () => {
     item.criticalModifier = normalizeModifier(criticalModifierInput.value);
     render();
     criticalModifierInput.focus();
+  }
+});
+
+poisonLevelInput.addEventListener("input", () => {
+  if (poisonLevelInput.value === "") {
+    return;
+  }
+  const item = getSelectedItem();
+  if (item && selected.type === "token") {
+    item.poisonLevel = normalizePoisonLevel(poisonLevelInput.value);
+    render();
+    poisonLevelInput.focus();
   }
 });
 

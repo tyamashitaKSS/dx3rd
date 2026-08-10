@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DX3rd Combat Board</title>
-    <link rel="stylesheet" href="styles.css?v=20260810-13" />
+    <link rel="stylesheet" href="styles.css?v=20260810-14" />
   </head>
   <body>
     <main class="app-shell">
@@ -125,7 +125,7 @@
                   <input type="checkbox" name="badStatus" value="rigidity" />
                   <span>硬直</span>
                 </label>
-                <label class="bad-status-option status-with-tooltip" data-description="クリンナッププロセスごとに邪毒のランク×3のHPダメージを受ける">
+                <label class="bad-status-option status-with-tooltip" data-description="クリンナッププロセスごとに邪毒のLv×3のHPダメージを受ける">
                   <input type="checkbox" name="badStatus" value="poison" />
                   <span>邪毒</span>
                 </label>
@@ -142,6 +142,10 @@
                   <span>憎悪</span>
                 </label>
               </div>
+              <label id="poisonLevelField" class="poison-level-field">
+                邪毒 Lv
+                <input id="poisonLevelInput" type="number" min="1" max="99" step="1" inputmode="numeric" />
+              </label>
             </fieldset>
             <label id="radiusField">
               半径
@@ -269,38 +273,42 @@
       <fieldset class="bad-status-editor context-bad-status-editor">
         <legend>バッドステータス</legend>
         <div class="bad-status-options">
-          <label class="bad-status-option status-with-tooltip" data-description="オートアクションのエフェクトを使用できない">
+          <label class="bad-status-option">
             <input type="checkbox" name="contextBadStatus" value="pressure" />
             <span>重圧</span>
           </label>
-          <label class="bad-status-option status-with-tooltip" data-description="全力移動および戦闘移動が行えない">
+          <label class="bad-status-option">
             <input type="checkbox" name="contextBadStatus" value="rigidity" />
             <span>硬直</span>
           </label>
-          <label class="bad-status-option status-with-tooltip" data-description="クリンナッププロセスごとに邪毒のランク×3のHPダメージを受ける">
+          <label class="bad-status-option">
             <input type="checkbox" name="contextBadStatus" value="poison" />
             <span>邪毒</span>
           </label>
-          <label class="bad-status-option status-with-tooltip" data-description="すべての判定のダイスが2個減少する">
+          <label class="bad-status-option">
             <input type="checkbox" name="contextBadStatus" value="dazed" />
             <span>放心</span>
           </label>
-          <label class="bad-status-option status-with-tooltip" data-description="ガードを含むリアクションとカバーリングができない">
+          <label class="bad-status-option">
             <input type="checkbox" name="contextBadStatus" value="berserk" />
             <span>暴走</span>
           </label>
-          <label class="bad-status-option status-with-tooltip" data-description="指定されたキャラクターに対して攻撃を行う">
+          <label class="bad-status-option">
             <input type="checkbox" name="contextBadStatus" value="hatred" />
             <span>憎悪</span>
           </label>
         </div>
+        <label id="contextPoisonLevelField" class="poison-level-field">
+          邪毒 Lv
+          <input id="contextPoisonLevelInput" type="number" min="1" max="99" step="1" inputmode="numeric" />
+        </label>
       </fieldset>
     </div>
 
     <script>
       window.DX3RD_USE_PEER_SYNC = window.location.hostname.endsWith(".github.io");
     </script>
-    <script src="app.js?v=20260810-13"></script>
-    <script type="module" src="sync.js?v=20260810-13"></script>
+    <script src="app.js?v=20260810-14"></script>
+    <script type="module" src="sync.js?v=20260810-14"></script>
   </body>
 </html>

@@ -22,7 +22,7 @@ test("combat board static assets are bundled for hosting", async () => {
   assert.match(html, /terrainLayer/);
   assert.match(html, /syncPanel/);
   assert.match(html, /joinRoomForm/);
-  assert.match(html, /styles\.css\?v=20260810-13/);
+  assert.match(html, /styles\.css\?v=20260810-14/);
   assert.match(html, /PC・エネミーはそれぞれ最大20体/);
   assert.match(html, /描画後は自動で選択に戻ります/);
   assert.match(html, /name="badStatus" value="pressure"/);
@@ -31,8 +31,12 @@ test("combat board static assets are bundled for hosting", async () => {
   assert.match(html, /id="tokenContextMenu"/);
   assert.match(html, /id="contextDiceModifierInput"/);
   assert.match(html, /name="contextBadStatus" value="poison"/);
-  assert.match(html, /app\.js\?v=20260810-13/);
-  assert.match(html, /type="module" src="sync\.js\?v=20260810-13"/);
+  assert.match(html, /id="poisonLevelInput"/);
+  assert.match(html, /id="contextPoisonLevelInput"/);
+  const contextMenuMarkup = html.slice(html.indexOf('id="tokenContextMenu"'), html.indexOf("<script>"));
+  assert.doesNotMatch(contextMenuMarkup, /status-with-tooltip|data-description/);
+  assert.match(html, /app\.js\?v=20260810-14/);
+  assert.match(html, /type="module" src="sync\.js\?v=20260810-14"/);
   assert.match(script, /REMOTE_STATE_ENDPOINT = "\/api\/board"/);
   assert.match(script, /const MAX_PC = 20/);
   assert.match(script, /const MAX_ENEMY = 20/);
@@ -40,6 +44,8 @@ test("combat board static assets are bundled for hosting", async () => {
   assert.match(script, /diceModifier: normalizeModifier\(item\.diceModifier\)/);
   assert.match(script, /selectedStatuses\.has\("evil-reading"\)/);
   assert.match(script, /name: "邪毒"/);
+  assert.match(script, /poisonLevel: normalizePoisonLevel\(item\.poisonLevel\)/);
+  assert.match(script, /`\$\{status\.name\} Lv\$\{normalizePoisonLevel\(token\.poisonLevel\)\}`/);
   assert.match(script, /getTokenEffects/);
   assert.match(script, /openTokenContextMenu/);
   assert.match(script, /const completedDrawing = \["draw", "draw-terrain-rect", "draw-token-rect"\]/);
@@ -68,6 +74,8 @@ test("combat board static assets are bundled for hosting", async () => {
   assert.match(styles, /\.bad-status-options/);
   assert.match(styles, /\.token-context-menu/);
   assert.match(styles, /\.status-with-tooltip:hover::after/);
+  assert.match(styles, /bottom: calc\(100% \+ 6px\)/);
+  assert.match(styles, /\.token-bad-status \{[\s\S]*?font-size: 13px/);
   assert.match(styles, /prefers-reduced-motion/);
 });
 
