@@ -7,6 +7,14 @@ const STORAGE_KEY = "dx3rd-combat-board-v3";
 const LEGACY_STORAGE_KEY = "dx3rd-combat-board-v2";
 const OLDER_STORAGE_KEY = "dx3rd-combat-board-v1";
 const REMOTE_STATE_ENDPOINT = "/api/board";
+const BAD_STATUSES = Object.freeze([
+  { id: "pressure", name: "重圧" },
+  { id: "rigidity", name: "硬直" },
+  { id: "evil-reading", name: "邪読" },
+  { id: "dazed", name: "放心" },
+  { id: "berserk", name: "暴走" },
+  { id: "hatred", name: "憎悪" },
+]);
 
 const board = document.querySelector("#board");
 const terrainLayer = document.querySelector("#terrainLayer");
@@ -35,6 +43,8 @@ const damageValue = document.querySelector("#damageValue");
 const damageInput = document.querySelector("#damageInput");
 const applyDamageButton = document.querySelector("#applyDamage");
 const clearDamageButton = document.querySelector("#clearDamage");
+const badStatusField = document.querySelector("#badStatusField");
+const badStatusInputs = [...document.querySelectorAll('input[name="badStatus"]')];
 const radiusField = document.querySelector("#radiusField");
 const radiusInput = document.querySelector("#radiusInput");
 const engageRadiusXField = document.querySelector("#engageRadiusXField");
@@ -85,10 +95,10 @@ function createInitialState() {
       { id: "engage-2", name: "エネミー側", x: 560, y: 250, radiusX: 135, radiusY: 135 },
     ],
     tokens: [
-      { id: "token-3", type: "pc", shape: "circle", name: "PC1", initiative: 0, damage: 0, size: TOKEN_SIZE, x: 215, y: 235, engageId: "engage-1" },
-      { id: "token-4", type: "pc", shape: "circle", name: "PC2", initiative: 0, damage: 0, size: TOKEN_SIZE, x: 285, y: 235, engageId: "engage-1" },
-      { id: "token-5", type: "enemy", shape: "circle", name: "敵1", initiative: 0, damage: 0, size: TOKEN_SIZE, x: 525, y: 235, engageId: "engage-2" },
-      { id: "token-6", type: "enemy", shape: "circle", name: "敵2", initiative: 0, damage: 0, size: TOKEN_SIZE, x: 595, y: 235, engageId: "engage-2" },
+      { id: "token-3", type: "pc", shape: "circle", name: "PC1", initiative: 0, damage: 0, badStatuses: [], size: TOKEN_SIZE, x: 215, y: 235, engageId: "engage-1" },
+      { id: "token-4", type: "pc", shape: "circle", name: "PC2", initiative: 0, damage: 0, badStatuses: [], size: TOKEN_SIZE, x: 285, y: 235, engageId: "engage-1" },
+      { id: "token-5", type: "enemy", shape: "circle", name: "敵1", initiative: 0, damage: 0, badStatuses: [], size: TOKEN_SIZE, x: 525, y: 235, engageId: "engage-2" },
+      { id: "token-6", type: "enemy", shape: "circle", name: "敵2", initiative: 0, damage: 0, badStatuses: [], size: TOKEN_SIZE, x: 595, y: 235, engageId: "engage-2" },
     ],
     shapes: [],
     activeTurnTokenId: null,
@@ -133,6 +143,7 @@ function normalizeState(candidate) {
       name: item.name == null ? (item.type === "pc" ? "PC" : "敵") : String(item.name),
       initiative: normalizeInitiative(item.initiative),
       damage: normalizeDamage(item.damage),
+      badStatuses: normalizeBadStatuses(item.badStatuses),
       size: normalizeTokenSize(item.size),
       width: normalizeTokenSide(item.width, 88),
       height: normalizeTokenSide(item.height, 58),
@@ -586,6 +597,18 @@ function renderTokens() {
       damage.textContent = token.damage;
       node.append(damage);
     }
+    const statusNames = getBadStatusNames(token);
+    if (statusNames.length) {
+      const statuses = document.createElement("span");
+      statuses.className = "token-bad-statuses";
+      statusNames.forEach((statusName) => {
+        const badge = document.createElement("span");
+        badge.className = "token-bad-status";
+        badge.textContent = statusName;
+        statuses.append(badge);
+      });
+      node.append(statuses);
+    }
     tokenLayer.append(node);
   });
 }
@@ -615,10 +638,14 @@ function renderEditor() {
     tokenSizeInput.value = item.size;
   }
   damageField.hidden = !isToken;
+  badStatusField.hidden = !isToken;
   if (isToken) {
     initiativeInput.value = item.initiative;
     damageValue.textContent = item.damage;
     damageInput.value = "";
+    badStatusInputs.forEach((input) => {
+      input.checked = item.badStatuses.includes(input.value);
+    });
   }
   radiusField.hidden = !isRadiusTarget;
   if (isRadiusTarget) {
@@ -752,16 +779,29 @@ function renderInitiativeList() {
       setActiveTurnToken(token.id);
     });
 
+    const identity = document.createElement("span");
+    identity.className = "initiative-identity";
+
     const name = document.createElement("span");
     name.className = "initiative-name";
     name.textContent = token.name;
     name.title = name.textContent;
+    identity.append(name);
+
+    const statusNames = getBadStatusNames(token);
+    if (statusNames.length) {
+      const statuses = document.createElement("span");
+      statuses.className = "initiative-statuses";
+      statuses.textContent = statusNames.join("・");
+      statuses.title = statusNames.join(" / ");
+      identity.append(statuses);
+    }
 
     const value = document.createElement("span");
     value.className = "initiative-value";
     value.textContent = token.initiative;
 
-    row.append(name);
+    row.append(identity);
     if (acted && state.activeTurnTokenId !== token.id) {
       const done = document.createElement("span");
       done.className = "initiative-done";
@@ -929,6 +969,16 @@ function normalizeInitiative(value) {
 function normalizeDamage(value) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.max(0, Math.trunc(number)) : 0;
+}
+
+function normalizeBadStatuses(value) {
+  const selectedStatuses = new Set(Array.isArray(value) ? value.map(String) : []);
+  return BAD_STATUSES.map((status) => status.id).filter((id) => selectedStatuses.has(id));
+}
+
+function getBadStatusNames(token) {
+  const selectedStatuses = new Set(token.badStatuses ?? []);
+  return BAD_STATUSES.filter((status) => selectedStatuses.has(status.id)).map((status) => status.name);
 }
 
 function normalizeTokenSize(value) {
@@ -1145,6 +1195,7 @@ function addToken(type) {
     name: type === "pc" ? `PC${current + 1}` : `敵${current + 1}`,
     initiative: 0,
     damage: 0,
+    badStatuses: [],
     size: TOKEN_SIZE,
     x: engage ? engage.x + Math.cos(angle) * spread : 120 + current * 48,
     y: engage ? engage.y + Math.sin(angle) * spread : 120,
@@ -1238,6 +1289,7 @@ function startRectangleEnemy(point) {
     name: `敵${current + 1}`,
     initiative: 0,
     damage: 0,
+    badStatuses: [],
     size: TOKEN_SIZE,
     width: 1,
     height: 1,
@@ -1725,6 +1777,22 @@ damageInput.addEventListener("keydown", (event) => {
     applyDamageExpression();
     capturedDamageExpression = null;
   }
+});
+
+badStatusInputs.forEach((input) => {
+  input.addEventListener("change", () => {
+    const item = getSelectedItem();
+    if (!item || selected.type !== "token") {
+      return;
+    }
+    changeWithHistory(() => {
+      item.badStatuses = normalizeBadStatuses(
+        badStatusInputs.filter((statusInput) => statusInput.checked).map((statusInput) => statusInput.value),
+      );
+    });
+    render();
+    input.focus();
+  });
 });
 
 radiusInput.addEventListener("input", () => {

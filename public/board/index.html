@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DX3rd Combat Board</title>
-    <link rel="stylesheet" href="styles.css?v=20260725-8" />
+    <link rel="stylesheet" href="styles.css?v=20260810-12" />
   </head>
   <body>
     <main class="app-shell">
@@ -104,6 +104,35 @@
                 <button id="clearDamage" type="button" class="ghost">0に戻す</button>
               </div>
             </div>
+            <fieldset id="badStatusField" class="bad-status-editor">
+              <legend>バッドステータス</legend>
+              <div class="bad-status-options">
+                <label class="bad-status-option" title="オートアクションのエフェクトを使用できない">
+                  <input type="checkbox" name="badStatus" value="pressure" />
+                  <span>重圧</span>
+                </label>
+                <label class="bad-status-option" title="全力移動および戦闘移動が行えない">
+                  <input type="checkbox" name="badStatus" value="rigidity" />
+                  <span>硬直</span>
+                </label>
+                <label class="bad-status-option" title="クリンナッププロセスごとにランク×3のHPダメージを受ける">
+                  <input type="checkbox" name="badStatus" value="evil-reading" />
+                  <span>邪読</span>
+                </label>
+                <label class="bad-status-option" title="すべての判定のダイスが2個減少する">
+                  <input type="checkbox" name="badStatus" value="dazed" />
+                  <span>放心</span>
+                </label>
+                <label class="bad-status-option" title="リアクションとカバーリングができない">
+                  <input type="checkbox" name="badStatus" value="berserk" />
+                  <span>暴走</span>
+                </label>
+                <label class="bad-status-option" title="指定されたキャラクターに対して攻撃を行う">
+                  <input type="checkbox" name="badStatus" value="hatred" />
+                  <span>憎悪</span>
+                </label>
+              </div>
+            </fieldset>
             <label id="radiusField">
               半径
               <input id="radiusInput" type="range" min="90" max="190" step="10" />
@@ -197,7 +226,7 @@
     <script>
       window.DX3RD_USE_PEER_SYNC = window.location.hostname.endsWith(".github.io");
     </script>
-    <script src="app.js?v=20260810-11"></script>
-    <script type="module" src="sync.js?v=20260810-11"></script>
+    <script src="app.js?v=20260810-12"></script>
+    <script type="module" src="sync.js?v=20260810-12"></script>
   </body>
 </html>

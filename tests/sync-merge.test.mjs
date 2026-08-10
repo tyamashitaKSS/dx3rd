@@ -43,6 +43,20 @@ test("merges different fields on the same object", () => {
   assert.equal(merged.tokens[0].name, "リモートPC");
 });
 
+test("keeps bad statuses when another user updates damage", () => {
+  const base = createState();
+  base.tokens[0].badStatuses = [];
+  const local = structuredClone(base);
+  const remote = structuredClone(base);
+  local.tokens[0].badStatuses = ["pressure", "berserk"];
+  remote.tokens[0].damage = 18;
+
+  const merged = mergeBoardStates(base, local, remote);
+
+  assert.deepEqual(merged.tokens[0].badStatuses, ["pressure", "berserk"]);
+  assert.equal(merged.tokens[0].damage, 18);
+});
+
 test("keeps additions from both users", () => {
   const base = createState();
   const local = structuredClone(base);

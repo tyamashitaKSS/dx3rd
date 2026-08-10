@@ -346,6 +346,54 @@ input[type="range"] {
   gap: 8px;
 }
 
+.bad-status-editor {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 9px 10px 10px;
+}
+
+.bad-status-editor legend {
+  padding: 0 5px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.bad-status-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.bad-status-option {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(181, 31, 55, 0.2);
+  border-radius: 6px;
+  padding: 7px 8px;
+  background: #fffdf8;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.bad-status-option:has(input:checked) {
+  border-color: rgba(181, 31, 55, 0.7);
+  background: #fff0ee;
+  color: var(--accent);
+}
+
+.bad-status-option input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
 .danger {
   background: #5e2424;
 }
@@ -628,6 +676,23 @@ input[type="range"] {
   max-width: none;
   overflow: hidden;
   text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.initiative-identity {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+  text-align: left;
+}
+
+.initiative-statuses {
+  overflow: hidden;
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -956,6 +1021,33 @@ input[type="range"] {
   line-height: 1;
   text-shadow: none;
   box-shadow: 0 6px 12px rgba(31, 37, 40, 0.24);
+}
+
+.token-bad-statuses {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  display: flex;
+  width: max-content;
+  max-width: 190px;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 3px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.token-bad-status {
+  border: 1px solid rgba(181, 31, 55, 0.72);
+  border-radius: 4px;
+  padding: 2px 4px;
+  background: rgba(255, 253, 248, 0.96);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.1;
+  text-shadow: none;
+  box-shadow: 0 2px 5px rgba(31, 37, 40, 0.16);
 }
 
 .token.pc {

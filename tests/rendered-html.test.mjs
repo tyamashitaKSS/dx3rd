@@ -22,14 +22,18 @@ test("combat board static assets are bundled for hosting", async () => {
   assert.match(html, /terrainLayer/);
   assert.match(html, /syncPanel/);
   assert.match(html, /joinRoomForm/);
-  assert.match(html, /styles\.css\?v=20260725-8/);
+  assert.match(html, /styles\.css\?v=20260810-12/);
   assert.match(html, /PC・エネミーはそれぞれ最大20体/);
   assert.match(html, /描画後は自動で選択に戻ります/);
-  assert.match(html, /app\.js\?v=20260810-11/);
-  assert.match(html, /type="module" src="sync\.js\?v=20260810-11"/);
+  assert.match(html, /name="badStatus" value="pressure"/);
+  assert.match(html, /name="badStatus" value="berserk"/);
+  assert.match(html, /app\.js\?v=20260810-12/);
+  assert.match(html, /type="module" src="sync\.js\?v=20260810-12"/);
   assert.match(script, /REMOTE_STATE_ENDPOINT = "\/api\/board"/);
   assert.match(script, /const MAX_PC = 20/);
   assert.match(script, /const MAX_ENEMY = 20/);
+  assert.match(script, /badStatuses: normalizeBadStatuses\(item\.badStatuses\)/);
+  assert.match(script, /getBadStatusNames/);
   assert.match(script, /const completedDrawing = \["draw", "draw-terrain-rect", "draw-token-rect"\]/);
   assert.match(script, /if \(completedDrawing\) \{\s*activeTool = "select";/);
   assert.match(script, /initializeRemoteState\(\)/);
@@ -52,6 +56,8 @@ test("combat board static assets are bundled for hosting", async () => {
   assert.match(styles, /\.sync-status/);
   assert.match(styles, /\.sync-join-form/);
   assert.match(styles, /@keyframes board-object-move/);
+  assert.match(styles, /\.token-bad-statuses/);
+  assert.match(styles, /\.bad-status-options/);
   assert.match(styles, /prefers-reduced-motion/);
 });
 
