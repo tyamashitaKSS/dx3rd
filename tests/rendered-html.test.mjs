@@ -33,6 +33,7 @@ test("combat board static assets are bundled for hosting", async () => {
   assert.match(html, /name="contextBadStatus" value="poison"/);
   assert.match(html, /id="poisonLevelInput"/);
   assert.match(html, /id="contextPoisonLevelInput"/);
+  assert.equal((html.match(/累積ダメージ/g) ?? []).length, 2);
   const contextMenuMarkup = html.slice(html.indexOf('id="tokenContextMenu"'), html.indexOf("<script>"));
   assert.doesNotMatch(contextMenuMarkup, /status-with-tooltip|data-description/);
   assert.match(html, /app\.js\?v=20260810-14/);
