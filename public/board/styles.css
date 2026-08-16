@@ -886,7 +886,8 @@ input[type="range"] {
 .terrain-layer,
 .shape-layer,
 .engage-layer,
-.token-layer {
+.token-layer,
+.resize-layer {
   position: absolute;
   inset: 0;
 }
@@ -900,7 +901,8 @@ input[type="range"] {
 }
 
 .terrain-layer,
-.shape-layer {
+.shape-layer,
+.resize-layer {
   width: 100%;
   height: 100%;
   overflow: visible;
@@ -921,6 +923,10 @@ input[type="range"] {
 
 .token-layer {
   z-index: 4;
+}
+
+.resize-layer {
+  z-index: 5;
 }
 
 .shape-layer marker path {
@@ -1009,8 +1015,31 @@ input[type="range"] {
   stroke-width: 3;
 }
 
+.resize-handle {
+  fill: #fffdf8;
+  pointer-events: all;
+  stroke: var(--accent);
+  stroke-width: 3;
+  touch-action: none;
+}
+
+.resize-nw { cursor: nwse-resize; }
+.resize-n { cursor: ns-resize; }
+.resize-ne { cursor: nesw-resize; }
+.resize-e,
+.resize-radius { cursor: ew-resize; }
+.resize-se { cursor: nwse-resize; }
+.resize-s { cursor: ns-resize; }
+.resize-sw { cursor: nesw-resize; }
+.resize-w { cursor: ew-resize; }
+
+
 .draw-shape.selected {
   filter: drop-shadow(0 0 4px rgba(181, 31, 55, 0.45));
+  stroke: var(--accent);
+}
+
+.draw-circle-group.selected .draw-circle {
   stroke: var(--accent);
 }
 

@@ -3,6 +3,7 @@ const MAX_ENEMY = 20;
 const TOKEN_SIZE = 58;
 const MIN_DRAW_SIZE = 10;
 const HISTORY_LIMIT = 50;
+const BOX_RESIZE_HANDLES = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 const STORAGE_KEY = "dx3rd-combat-board-v3";
 const LEGACY_STORAGE_KEY = "dx3rd-combat-board-v2";
 const OLDER_STORAGE_KEY = "dx3rd-combat-board-v1";
@@ -21,6 +22,7 @@ const terrainLayer = document.querySelector("#terrainLayer");
 const shapeLayer = document.querySelector("#shapeLayer");
 const engageLayer = document.querySelector("#engageLayer");
 const tokenLayer = document.querySelector("#tokenLayer");
+const resizeLayer = document.querySelector("#resizeLayer");
 const roster = document.querySelector("#roster");
 const counts = document.querySelector("#counts");
 const initiativeList = document.querySelector("#initiativeList");
@@ -557,11 +559,25 @@ function render() {
 
 function renderShapes() {
   terrainLayer.innerHTML = "";
+  resizeLayer.innerHTML = "";
   [...shapeLayer.querySelectorAll(".draw-shape")].forEach((node) => node.remove());
   state.shapes.forEach((shape) => {
     const layer = shape.kind === "terrain-rect" ? terrainLayer : shapeLayer;
     layer.append(createShapeNode(shape));
+    if (isSelected("shape", shape.id)) {
+      resizeLayer.append(...createShapeResizeHandles(shape));
+    }
   });
+}
+
+function createShapeResizeHandles(shape) {
+  if (shape.kind === "terrain-rect") {
+    return createSvgBoxResizeHandles("shape", shape.id, getShapeBounds(shape));
+  }
+  if (shape.kind === "circle") {
+    return [createSvgResizeHandle("shape", shape.id, "radius", shape.x + shape.radius, shape.y)];
+  }
+  return [createLineHandle(shape, "start"), createLineHandle(shape, "end")];
 }
 
 function createShapeNode(shape) {
@@ -588,13 +604,17 @@ function createShapeNode(shape) {
   }
 
   if (shape.kind === "circle") {
+    const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    group.classList.add("draw-shape", "draw-circle-group");
+    decorateShapeNode(group, shape);
+
     const node = document.createElementNS("http://www.w3.org/2000/svg", "circle");
     node.setAttribute("cx", shape.x);
     node.setAttribute("cy", shape.y);
     node.setAttribute("r", shape.radius);
-    node.classList.add("draw-shape", "draw-circle");
-    decorateShapeNode(node, shape);
-    return node;
+    node.classList.add("draw-circle");
+    group.append(node);
+    return group;
   }
 
   const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -630,9 +650,6 @@ function createShapeNode(shape) {
   label.textContent = shape.name;
 
   group.append(hitLine, node, label);
-  if (isSelected("shape", shape.id)) {
-    group.append(createLineHandle(shape, "start"), createLineHandle(shape, "end"));
-  }
   return group;
 }
 
@@ -646,6 +663,41 @@ function createLineHandle(shape, handle) {
   node.dataset.id = shape.id;
   node.dataset.handle = handle;
   return node;
+}
+
+function createSvgBoxResizeHandles(type, id, bounds) {
+  return BOX_RESIZE_HANDLES.map((handle) => {
+    const point = getResizeHandlePoint(bounds, handle);
+    return createSvgResizeHandle(type, id, handle, point.x, point.y);
+  });
+}
+
+function createSvgResizeHandle(type, id, handle, x, y) {
+  const node = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  node.setAttribute("cx", x);
+  node.setAttribute("cy", y);
+  node.setAttribute("r", 8);
+  node.classList.add("resize-handle", `resize-${handle}`);
+  node.dataset.type = type;
+  node.dataset.id = id;
+  node.dataset.resizeHandle = handle;
+  return node;
+}
+
+function getResizeHandlePoint(bounds, handle) {
+  return {
+    x: handle.includes("w") ? bounds.left : handle.includes("e") ? bounds.right : (bounds.left + bounds.right) / 2,
+    y: handle.includes("n") ? bounds.top : handle.includes("s") ? bounds.bottom : (bounds.top + bounds.bottom) / 2,
+  };
+}
+
+function getShapeBounds(shape) {
+  return {
+    left: shape.x - shape.width / 2,
+    top: shape.y - shape.height / 2,
+    right: shape.x + shape.width / 2,
+    bottom: shape.y + shape.height / 2,
+  };
 }
 
 function decorateShapeNode(node, shape) {
@@ -673,6 +725,9 @@ function renderEngages() {
     label.className = "engage-label";
     label.textContent = engage.name;
     node.append(label);
+    if (isSelected("engage", engage.id)) {
+      resizeLayer.append(...createSvgBoxResizeHandles("engage", engage.id, getResizableBounds("engage", engage)));
+    }
     engageLayer.append(node);
   });
 }
@@ -718,6 +773,13 @@ function renderTokens() {
         statuses.append(badge);
       });
       node.append(statuses);
+    }
+    if (isSelected("token", token.id) && token.type === "enemy") {
+      if (token.shape === "rect") {
+        resizeLayer.append(...createSvgBoxResizeHandles("token", token.id, getResizableBounds("token", token)));
+      } else {
+        resizeLayer.append(createSvgResizeHandle("token", token.id, "radius", token.x + token.size / 2, token.y));
+      }
     }
     tokenLayer.append(node);
   });
@@ -1558,7 +1620,9 @@ function startDrag(event) {
   const point = getBoardPoint(event);
   selected = { type, id };
 
-  if (type === "shape" && target.dataset.handle) {
+  if (target.dataset.resizeHandle) {
+    drag = createResizeDrag(type, id, target.dataset.resizeHandle);
+  } else if (type === "shape" && target.dataset.handle) {
     drag = {
       type: "line-handle",
       id,
@@ -1593,6 +1657,53 @@ function startDrag(event) {
   render();
 }
 
+function createResizeDrag(type, id, handle) {
+  const item =
+    type === "engage"
+      ? state.engages.find((candidate) => candidate.id === id)
+      : type === "token"
+        ? state.tokens.find((candidate) => candidate.id === id)
+        : state.shapes.find((candidate) => candidate.id === id);
+  return {
+    type: "resize",
+    objectType: type,
+    id,
+    handle,
+    itemStart: structuredClone(item),
+    bounds: getResizableBounds(type, item),
+  };
+}
+
+function getResizableBounds(type, item) {
+  if (type === "engage") {
+    return {
+      left: item.x - item.radiusX,
+      top: item.y - item.radiusY,
+      right: item.x + item.radiusX,
+      bottom: item.y + item.radiusY,
+    };
+  }
+  if (type === "token") {
+    const width = getTokenWidth(item);
+    const height = getTokenHeight(item);
+    return {
+      left: item.x - width / 2,
+      top: item.y - height / 2,
+      right: item.x + width / 2,
+      bottom: item.y + height / 2,
+    };
+  }
+  if (item.kind === "circle") {
+    return {
+      left: item.x - item.radius,
+      top: item.y - item.radius,
+      right: item.x + item.radius,
+      bottom: item.y + item.radius,
+    };
+  }
+  return getShapeBounds(item);
+}
+
 function movePointer(event) {
   if (!drag) {
     return;
@@ -1616,6 +1727,82 @@ function movePointer(event) {
     moveShape(dx, dy);
   } else if (drag.type === "line-handle") {
     moveLineHandle(point);
+  } else if (drag.type === "resize") {
+    moveResizeHandle(point);
+  }
+}
+
+function moveResizeHandle(point) {
+  const item =
+    drag.objectType === "engage"
+      ? state.engages.find((candidate) => candidate.id === drag.id)
+      : drag.objectType === "token"
+        ? state.tokens.find((candidate) => candidate.id === drag.id)
+        : state.shapes.find((candidate) => candidate.id === drag.id);
+  if (!item) {
+    return;
+  }
+
+  if (drag.handle === "radius") {
+    resizeCircularItem(item, point);
+  } else {
+    resizeBoxItem(item, point);
+  }
+  render();
+}
+
+function resizeCircularItem(item, point) {
+  const start = drag.itemStart;
+  const maxRadius = Math.max(
+    MIN_DRAW_SIZE,
+    Math.min(
+      drag.objectType === "shape" ? 240 : 90,
+      start.x,
+      board.clientWidth - start.x,
+      start.y,
+      board.clientHeight - start.y,
+    ),
+  );
+  const radius = clamp(Math.hypot(point.x - start.x, point.y - start.y), MIN_DRAW_SIZE, maxRadius);
+  if (drag.objectType === "token") {
+    item.size = clamp(radius * 2, 40, Math.min(180, maxRadius * 2));
+  } else {
+    item.radius = radius;
+  }
+}
+
+function resizeBoxItem(item, point) {
+  const bounds = drag.bounds;
+  const handle = drag.handle;
+  const minWidth = drag.objectType === "engage" ? 180 : drag.objectType === "token" ? 40 : 24;
+  const minHeight = drag.objectType === "engage" ? 120 : minWidth;
+  const maxWidth = drag.objectType === "engage" ? 720 : board.clientWidth;
+  const maxHeight = drag.objectType === "engage" ? 520 : board.clientHeight;
+  let { left, top, right, bottom } = bounds;
+
+  if (handle.includes("w")) {
+    left = clamp(point.x, Math.max(0, right - maxWidth), right - minWidth);
+  }
+  if (handle.includes("e")) {
+    right = clamp(point.x, left + minWidth, Math.min(board.clientWidth, left + maxWidth));
+  }
+  if (handle.includes("n")) {
+    top = clamp(point.y, Math.max(0, bottom - maxHeight), bottom - minHeight);
+  }
+  if (handle.includes("s")) {
+    bottom = clamp(point.y, top + minHeight, Math.min(board.clientHeight, top + maxHeight));
+  }
+
+  const width = right - left;
+  const height = bottom - top;
+  item.x = left + width / 2;
+  item.y = top + height / 2;
+  if (drag.objectType === "engage") {
+    item.radiusX = width / 2;
+    item.radiusY = height / 2;
+  } else {
+    item.width = width;
+    item.height = height;
   }
 }
 
