@@ -23,7 +23,7 @@ test("combat board static assets are bundled for hosting", async () => {
   assert.match(html, /resizeLayer/);
   assert.match(html, /syncPanel/);
   assert.match(html, /joinRoomForm/);
-  assert.match(html, /styles\.css\?v=20260816-17/);
+  assert.match(html, /styles\.css\?v=20260902-18/);
   assert.match(html, /PC・エネミーはそれぞれ最大20体/);
   assert.match(html, /描画後は自動で選択に戻ります/);
   assert.match(html, /name="badStatus" value="pressure"/);
@@ -31,19 +31,26 @@ test("combat board static assets are bundled for hosting", async () => {
   assert.match(html, /name="badStatus" value="poison"/);
   assert.match(html, /id="tokenContextMenu"/);
   assert.match(html, /id="contextDiceModifierInput"/);
+  assert.match(html, /id="contextAttackModifierInput"/);
+  assert.match(html, /id="applyEngageDamage"/);
+  assert.match(html, /id="applyAllEnemyDamage"/);
+  assert.match(html, /id="engageContextMenu"/);
   assert.match(html, /name="contextBadStatus" value="poison"/);
   assert.match(html, /id="poisonLevelInput"/);
   assert.match(html, /id="contextPoisonLevelInput"/);
   assert.equal((html.match(/累積ダメージ/g) ?? []).length, 2);
   const contextMenuMarkup = html.slice(html.indexOf('id="tokenContextMenu"'), html.indexOf("<script>"));
   assert.doesNotMatch(contextMenuMarkup, /status-with-tooltip|data-description/);
-  assert.match(html, /app\.js\?v=20260816-17/);
+  assert.match(html, /app\.js\?v=20260902-18/);
   assert.match(html, /type="module" src="sync\.js\?v=20260810-14"/);
   assert.match(script, /REMOTE_STATE_ENDPOINT = "\/api\/board"/);
   assert.match(script, /const MAX_PC = 20/);
   assert.match(script, /const MAX_ENEMY = 20/);
   assert.match(script, /badStatuses: normalizeBadStatuses\(item\.badStatuses\)/);
   assert.match(script, /diceModifier: normalizeModifier\(item\.diceModifier\)/);
+  assert.match(script, /attackModifier: normalizeAttackModifier\(item\.attackModifier\)/);
+  assert.match(script, /function applyDamageToTokens/);
+  assert.match(script, /function openEngageContextMenu/);
   assert.match(script, /selectedStatuses\.has\("evil-reading"\)/);
   assert.match(script, /name: "邪毒"/);
   assert.match(script, /poisonLevel: normalizePoisonLevel\(item\.poisonLevel\)/);
@@ -86,6 +93,7 @@ test("combat board static assets are bundled for hosting", async () => {
   assert.match(styles, /\.status-with-tooltip:hover::after/);
   assert.match(styles, /bottom: calc\(100% \+ 6px\)/);
   assert.match(styles, /\.token-bad-status \{[\s\S]*?font-size: 13px/);
+  assert.match(styles, /\.token-bad-status\.attack/);
   assert.match(styles, /prefers-reduced-motion/);
 });
 
@@ -111,6 +119,8 @@ test("Japanese manuals cover the main workflows and include screenshots", async 
   assert.match(manual, /共有ルーム/);
   assert.match(manual, /右クリック/);
   assert.match(manual, /累積ダメージ/);
+  assert.match(manual, /全エネミー/);
+  assert.match(manual, /攻撃力補正/);
   assert.match(manual, /邪毒/);
   assert.match(manual, /assets\/manual-board\.png/);
   assert.match(manual, /assets\/manual-settings\.png/);

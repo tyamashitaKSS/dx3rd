@@ -41,6 +41,7 @@ const initiativeInput = document.querySelector("#initiativeInput");
 const modifierField = document.querySelector("#modifierField");
 const diceModifierInput = document.querySelector("#diceModifierInput");
 const criticalModifierInput = document.querySelector("#criticalModifierInput");
+const attackModifierInput = document.querySelector("#attackModifierInput");
 const tokenSizeField = document.querySelector("#tokenSizeField");
 const tokenSizeInput = document.querySelector("#tokenSizeInput");
 const damageField = document.querySelector("#damageField");
@@ -74,6 +75,7 @@ const closeTokenContextMenuButton = document.querySelector("#closeTokenContextMe
 const contextInitiativeInput = document.querySelector("#contextInitiativeInput");
 const contextDiceModifierInput = document.querySelector("#contextDiceModifierInput");
 const contextCriticalModifierInput = document.querySelector("#contextCriticalModifierInput");
+const contextAttackModifierInput = document.querySelector("#contextAttackModifierInput");
 const contextDamageValue = document.querySelector("#contextDamageValue");
 const contextDamageInput = document.querySelector("#contextDamageInput");
 const applyContextDamageButton = document.querySelector("#applyContextDamage");
@@ -81,6 +83,16 @@ const clearContextDamageButton = document.querySelector("#clearContextDamage");
 const contextBadStatusInputs = [...tokenContextMenu.querySelectorAll('input[name="contextBadStatus"]')];
 const contextPoisonLevelField = document.querySelector("#contextPoisonLevelField");
 const contextPoisonLevelInput = document.querySelector("#contextPoisonLevelInput");
+const enemyGroupDamageActions = document.querySelector("#enemyGroupDamageActions");
+const applyEngageDamageButton = document.querySelector("#applyEngageDamage");
+const applyAllEnemyDamageButton = document.querySelector("#applyAllEnemyDamage");
+const engageContextMenu = document.querySelector("#engageContextMenu");
+const contextEngageName = document.querySelector("#contextEngageName");
+const closeEngageContextMenuButton = document.querySelector("#closeEngageContextMenu");
+const engageEnemyCount = document.querySelector("#engageEnemyCount");
+const engageDamageInput = document.querySelector("#engageDamageInput");
+const applyEngageEnemyDamageButton = document.querySelector("#applyEngageEnemyDamage");
+const applyAllEnemyDamageFromEngageButton = document.querySelector("#applyAllEnemyDamageFromEngage");
 
 let state = loadState();
 let selected = { type: "engage", id: state.engages[0]?.id ?? null };
@@ -90,6 +102,7 @@ let attentionTokenId = null;
 let attentionTimer = null;
 let capturedDamageExpression = null;
 let contextTokenId = null;
+let contextEngageId = null;
 let lastDamagePointerApplyAt = 0;
 const movementAnimations = new Map();
 let lastInitiativeClick = { id: null, at: 0 };
@@ -116,10 +129,10 @@ function createInitialState() {
       { id: "engage-2", name: "エネミー側", x: 560, y: 250, radiusX: 135, radiusY: 135 },
     ],
     tokens: [
-      { id: "token-3", type: "pc", shape: "circle", name: "PC1", initiative: 0, damage: 0, diceModifier: 0, criticalModifier: 0, badStatuses: [], poisonLevel: 1, size: TOKEN_SIZE, x: 215, y: 235, engageId: "engage-1" },
-      { id: "token-4", type: "pc", shape: "circle", name: "PC2", initiative: 0, damage: 0, diceModifier: 0, criticalModifier: 0, badStatuses: [], poisonLevel: 1, size: TOKEN_SIZE, x: 285, y: 235, engageId: "engage-1" },
-      { id: "token-5", type: "enemy", shape: "circle", name: "敵1", initiative: 0, damage: 0, diceModifier: 0, criticalModifier: 0, badStatuses: [], poisonLevel: 1, size: TOKEN_SIZE, x: 525, y: 235, engageId: "engage-2" },
-      { id: "token-6", type: "enemy", shape: "circle", name: "敵2", initiative: 0, damage: 0, diceModifier: 0, criticalModifier: 0, badStatuses: [], poisonLevel: 1, size: TOKEN_SIZE, x: 595, y: 235, engageId: "engage-2" },
+      { id: "token-3", type: "pc", shape: "circle", name: "PC1", initiative: 0, damage: 0, diceModifier: 0, criticalModifier: 0, attackModifier: 0, badStatuses: [], poisonLevel: 1, size: TOKEN_SIZE, x: 215, y: 235, engageId: "engage-1" },
+      { id: "token-4", type: "pc", shape: "circle", name: "PC2", initiative: 0, damage: 0, diceModifier: 0, criticalModifier: 0, attackModifier: 0, badStatuses: [], poisonLevel: 1, size: TOKEN_SIZE, x: 285, y: 235, engageId: "engage-1" },
+      { id: "token-5", type: "enemy", shape: "circle", name: "敵1", initiative: 0, damage: 0, diceModifier: 0, criticalModifier: 0, attackModifier: 0, badStatuses: [], poisonLevel: 1, size: TOKEN_SIZE, x: 525, y: 235, engageId: "engage-2" },
+      { id: "token-6", type: "enemy", shape: "circle", name: "敵2", initiative: 0, damage: 0, diceModifier: 0, criticalModifier: 0, attackModifier: 0, badStatuses: [], poisonLevel: 1, size: TOKEN_SIZE, x: 595, y: 235, engageId: "engage-2" },
     ],
     shapes: [],
     activeTurnTokenId: null,
@@ -166,6 +179,7 @@ function normalizeState(candidate) {
       damage: normalizeDamage(item.damage),
       diceModifier: normalizeModifier(item.diceModifier),
       criticalModifier: normalizeModifier(item.criticalModifier),
+      attackModifier: normalizeAttackModifier(item.attackModifier),
       badStatuses: normalizeBadStatuses(item.badStatuses),
       poisonLevel: normalizePoisonLevel(item.poisonLevel),
       size: normalizeTokenSize(item.size),
@@ -549,6 +563,7 @@ function render() {
   renderTokens();
   renderEditor();
   renderTokenContextMenu();
+  renderEngageContextMenu();
   renderRoster();
   updateCounts();
   renderInitiativeList();
@@ -817,6 +832,7 @@ function renderEditor() {
     initiativeInput.value = item.initiative;
     diceModifierInput.value = item.diceModifier;
     criticalModifierInput.value = item.criticalModifier;
+    attackModifierInput.value = item.attackModifier;
     damageValue.textContent = item.damage;
     damageInput.value = "";
     badStatusInputs.forEach((input) => {
@@ -1162,6 +1178,11 @@ function normalizeModifier(value) {
   return Number.isFinite(number) ? clamp(Math.trunc(number), -99, 99) : 0;
 }
 
+function normalizeAttackModifier(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? clamp(Math.trunc(number), -999, 999) : 0;
+}
+
 function normalizePoisonLevel(value) {
   const number = Number(value);
   return Number.isFinite(number) ? clamp(Math.trunc(number), 1, 99) : 1;
@@ -1191,6 +1212,9 @@ function getTokenEffects(token) {
   }
   if (token.criticalModifier) {
     effects.push({ type: "critical", label: `C値${formatSignedModifier(token.criticalModifier)}` });
+  }
+  if (token.attackModifier) {
+    effects.push({ type: "attack", label: `攻撃力${formatSignedModifier(token.attackModifier)}` });
   }
   getBadStatuses(token).forEach((status) => {
     const label = status.id === "poison" ? `${status.name} Lv${normalizePoisonLevel(token.poisonLevel)}` : status.name;
@@ -1375,13 +1399,12 @@ function openTokenContextMenu(tokenId, clientX, clientY) {
   }
   selected = { type: "token", id: tokenId };
   activeTool = "select";
+  closeEngageContextMenu();
   contextTokenId = tokenId;
   contextDamageInput.value = "";
   render();
   tokenContextMenu.hidden = false;
-  const menuRect = tokenContextMenu.getBoundingClientRect();
-  tokenContextMenu.style.left = `${clamp(clientX, 8, window.innerWidth - menuRect.width - 8)}px`;
-  tokenContextMenu.style.top = `${clamp(clientY, 8, window.innerHeight - menuRect.height - 8)}px`;
+  positionContextMenu(tokenContextMenu, clientX, clientY);
 }
 
 function closeTokenContextMenu() {
@@ -1402,7 +1425,10 @@ function renderTokenContextMenu() {
   contextInitiativeInput.value = token.initiative;
   contextDiceModifierInput.value = token.diceModifier;
   contextCriticalModifierInput.value = token.criticalModifier;
+  contextAttackModifierInput.value = token.attackModifier;
   contextDamageValue.textContent = token.damage;
+  enemyGroupDamageActions.hidden = token.type !== "enemy";
+  applyEngageDamageButton.disabled = !token.engageId || !getEnemyTokens(token.engageId).length;
   contextPoisonLevelField.hidden = !token.badStatuses.includes("poison");
   contextPoisonLevelInput.value = token.poisonLevel;
   contextBadStatusInputs.forEach((input) => {
@@ -1436,6 +1462,76 @@ function applyContextDamage() {
   });
   contextDamageInput.value = "";
   contextDamageInput.focus();
+}
+
+function getEnemyTokens(engageId = null) {
+  return state.tokens.filter((token) => token.type === "enemy" && (engageId == null || token.engageId === engageId));
+}
+
+function applyDamageToTokens(tokens, value, input) {
+  const delta = parseDamageExpression(value);
+  if (delta == null || !tokens.length) {
+    input?.select();
+    return false;
+  }
+  changeWithHistory(() => {
+    tokens.forEach((token) => {
+      token.damage = normalizeDamage(token.damage + delta);
+    });
+  });
+  render();
+  if (input) {
+    input.value = "";
+    input.focus();
+  }
+  return true;
+}
+
+function openEngageContextMenu(engageId, clientX, clientY) {
+  const engage = state.engages.find((item) => item.id === engageId);
+  if (!engage) {
+    return;
+  }
+  closeTokenContextMenu();
+  selected = { type: "engage", id: engageId };
+  activeTool = "select";
+  contextEngageId = engageId;
+  engageDamageInput.value = "";
+  render();
+  contextEngageName.textContent = engage.name || "名称なし";
+  const enemyCount = getEnemyTokens(engageId).length;
+  engageEnemyCount.textContent = `所属エネミー ${enemyCount}体`;
+  applyEngageEnemyDamageButton.disabled = enemyCount === 0;
+  applyAllEnemyDamageFromEngageButton.disabled = getEnemyTokens().length === 0;
+  engageContextMenu.hidden = false;
+  positionContextMenu(engageContextMenu, clientX, clientY);
+}
+
+function closeEngageContextMenu() {
+  contextEngageId = null;
+  engageContextMenu.hidden = true;
+}
+
+function renderEngageContextMenu() {
+  if (!contextEngageId) {
+    return;
+  }
+  const engage = state.engages.find((item) => item.id === contextEngageId);
+  if (!engage) {
+    closeEngageContextMenu();
+    return;
+  }
+  const enemyCount = getEnemyTokens(contextEngageId).length;
+  contextEngageName.textContent = engage.name || "名称なし";
+  engageEnemyCount.textContent = `所属エネミー ${enemyCount}体`;
+  applyEngageEnemyDamageButton.disabled = enemyCount === 0;
+  applyAllEnemyDamageFromEngageButton.disabled = getEnemyTokens().length === 0;
+}
+
+function positionContextMenu(menu, clientX, clientY) {
+  const menuRect = menu.getBoundingClientRect();
+  menu.style.left = `${clamp(clientX, 8, window.innerWidth - menuRect.width - 8)}px`;
+  menu.style.top = `${clamp(clientY, 8, window.innerHeight - menuRect.height - 8)}px`;
 }
 
 function getBoardPoint(event) {
@@ -1489,6 +1585,7 @@ function addToken(type) {
     damage: 0,
     diceModifier: 0,
     criticalModifier: 0,
+    attackModifier: 0,
     badStatuses: [],
     poisonLevel: 1,
     size: TOKEN_SIZE,
@@ -1586,6 +1683,7 @@ function startRectangleEnemy(point) {
     damage: 0,
     diceModifier: 0,
     criticalModifier: 0,
+    attackModifier: 0,
     badStatuses: [],
     poisonLevel: 1,
     size: TOKEN_SIZE,
@@ -2102,12 +2200,17 @@ importFile.addEventListener("change", handleImportFile);
 
 board.addEventListener("pointerdown", startPointer);
 document.addEventListener("contextmenu", (event) => {
-  const target = event.target.closest('[data-type="token"][data-id]');
-  if (!target) {
+  const tokenTarget = event.target.closest('[data-type="token"][data-id]');
+  if (tokenTarget) {
+    event.preventDefault();
+    openTokenContextMenu(tokenTarget.dataset.id, event.clientX, event.clientY);
     return;
   }
-  event.preventDefault();
-  openTokenContextMenu(target.dataset.id, event.clientX, event.clientY);
+  const engageTarget = event.target.closest('[data-type="engage"][data-id]');
+  if (engageTarget) {
+    event.preventDefault();
+    openEngageContextMenu(engageTarget.dataset.id, event.clientX, event.clientY);
+  }
 });
 window.addEventListener("pointermove", movePointer);
 window.addEventListener("pointerup", endPointer);
@@ -2116,9 +2219,13 @@ document.addEventListener("pointerdown", (event) => {
   if (!tokenContextMenu.hidden && event.button === 0 && !tokenContextMenu.contains(event.target)) {
     closeTokenContextMenu();
   }
+  if (!engageContextMenu.hidden && event.button === 0 && !engageContextMenu.contains(event.target)) {
+    closeEngageContextMenu();
+  }
 });
 
 closeTokenContextMenuButton.addEventListener("click", closeTokenContextMenu);
+closeEngageContextMenuButton.addEventListener("click", closeEngageContextMenu);
 contextInitiativeInput.addEventListener("input", () => {
   if (contextInitiativeInput.value === "") {
     return;
@@ -2146,6 +2253,15 @@ contextCriticalModifierInput.addEventListener("input", () => {
   });
   contextCriticalModifierInput.focus();
 });
+contextAttackModifierInput.addEventListener("input", () => {
+  if (contextAttackModifierInput.value === "") {
+    return;
+  }
+  updateContextToken((token) => {
+    token.attackModifier = normalizeAttackModifier(contextAttackModifierInput.value);
+  });
+  contextAttackModifierInput.focus();
+});
 contextPoisonLevelInput.addEventListener("input", () => {
   if (contextPoisonLevelInput.value === "") {
     return;
@@ -2156,6 +2272,29 @@ contextPoisonLevelInput.addEventListener("input", () => {
   contextPoisonLevelInput.focus();
 });
 applyContextDamageButton.addEventListener("click", applyContextDamage);
+applyEngageDamageButton.addEventListener("click", () => {
+  const token = getContextToken();
+  if (token?.engageId) {
+    applyDamageToTokens(getEnemyTokens(token.engageId), contextDamageInput.value, contextDamageInput);
+  }
+});
+applyAllEnemyDamageButton.addEventListener("click", () => {
+  applyDamageToTokens(getEnemyTokens(), contextDamageInput.value, contextDamageInput);
+});
+applyEngageEnemyDamageButton.addEventListener("click", () => {
+  if (contextEngageId) {
+    applyDamageToTokens(getEnemyTokens(contextEngageId), engageDamageInput.value, engageDamageInput);
+  }
+});
+applyAllEnemyDamageFromEngageButton.addEventListener("click", () => {
+  applyDamageToTokens(getEnemyTokens(), engageDamageInput.value, engageDamageInput);
+});
+engageDamageInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && contextEngageId) {
+    event.preventDefault();
+    applyDamageToTokens(getEnemyTokens(contextEngageId), engageDamageInput.value, engageDamageInput);
+  }
+});
 clearContextDamageButton.addEventListener("click", () => {
   updateContextToken((token) => {
     token.damage = 0;
@@ -2254,6 +2393,18 @@ criticalModifierInput.addEventListener("input", () => {
     item.criticalModifier = normalizeModifier(criticalModifierInput.value);
     render();
     criticalModifierInput.focus();
+  }
+});
+
+attackModifierInput.addEventListener("input", () => {
+  if (attackModifierInput.value === "") {
+    return;
+  }
+  const item = getSelectedItem();
+  if (item && selected.type === "token") {
+    item.attackModifier = normalizeAttackModifier(attackModifierInput.value);
+    render();
+    attackModifierInput.focus();
   }
 });
 
@@ -2379,15 +2530,20 @@ function isHistoryShortcut(event, key) {
 }
 
 window.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !tokenContextMenu.hidden) {
+  if (event.key === "Escape" && (!tokenContextMenu.hidden || !engageContextMenu.hidden)) {
     event.preventDefault();
     closeTokenContextMenu();
+    closeEngageContextMenu();
     return;
   }
   const modifier = event.ctrlKey || event.metaKey;
   if (modifier && !event.altKey && isHistoryShortcut(event, "z")) {
     event.preventDefault();
-    event.shiftKey ? redo() : undo();
+    if (event.shiftKey) {
+      redo();
+    } else {
+      undo();
+    }
     return;
   }
   if (modifier && !event.altKey && isHistoryShortcut(event, "y")) {

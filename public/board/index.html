@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DX3rd Combat Board</title>
-    <link rel="stylesheet" href="styles.css?v=20260816-17" />
+    <link rel="stylesheet" href="styles.css?v=20260902-18" />
   </head>
   <body>
     <main class="app-shell">
@@ -94,6 +94,10 @@
               <label>
                 C値補正
                 <input id="criticalModifierInput" type="number" min="-99" max="99" step="1" inputmode="numeric" />
+              </label>
+              <label>
+                攻撃力補正
+                <input id="attackModifierInput" type="number" min="-999" max="999" step="1" inputmode="numeric" />
               </label>
             </div>
             <label id="tokenSizeField">
@@ -256,6 +260,10 @@
           C値補正
           <input id="contextCriticalModifierInput" type="number" min="-99" max="99" step="1" inputmode="numeric" />
         </label>
+        <label>
+          攻撃力補正
+          <input id="contextAttackModifierInput" type="number" min="-999" max="999" step="1" inputmode="numeric" />
+        </label>
       </div>
       <div class="context-damage-editor">
         <div class="damage-current">
@@ -269,6 +277,10 @@
         <div class="damage-actions">
           <button id="applyContextDamage" type="button">適用</button>
           <button id="clearContextDamage" type="button" class="ghost">0に戻す</button>
+        </div>
+        <div id="enemyGroupDamageActions" class="group-damage-actions" hidden>
+          <button id="applyEngageDamage" type="button" class="ghost">同じエンゲージの敵へ</button>
+          <button id="applyAllEnemyDamage" type="button" class="ghost">全エネミーへ</button>
         </div>
       </div>
       <fieldset class="bad-status-editor context-bad-status-editor">
@@ -306,10 +318,28 @@
       </fieldset>
     </div>
 
+    <div id="engageContextMenu" class="token-context-menu engage-context-menu" role="dialog" aria-label="エンゲージの敵へダメージ" hidden>
+      <div class="context-menu-heading">
+        <strong id="contextEngageName"></strong>
+        <button id="closeEngageContextMenu" class="context-menu-close" type="button" title="閉じる" aria-label="閉じる">×</button>
+      </div>
+      <p id="engageEnemyCount" class="group-damage-summary"></p>
+      <div class="context-damage-editor">
+        <label>
+          敵へのダメージ加減算
+          <input id="engageDamageInput" type="text" inputmode="numeric" autocomplete="off" placeholder="+10 / -5 / 10+3-2" />
+        </label>
+        <div class="group-damage-actions">
+          <button id="applyEngageEnemyDamage" type="button">このエンゲージの敵へ</button>
+          <button id="applyAllEnemyDamageFromEngage" type="button" class="ghost">全エネミーへ</button>
+        </div>
+      </div>
+    </div>
+
     <script>
       window.DX3RD_USE_PEER_SYNC = window.location.hostname.endsWith(".github.io");
     </script>
-    <script src="app.js?v=20260816-17"></script>
+    <script src="app.js?v=20260902-18"></script>
     <script type="module" src="sync.js?v=20260810-14"></script>
   </body>
 </html>

@@ -526,13 +526,32 @@ input[type="range"] {
 
 .context-value-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
 .context-damage-editor {
   display: grid;
   gap: 8px;
+}
+
+.group-damage-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.group-damage-actions button {
+  min-height: 40px;
+  padding: 8px;
+  line-height: 1.25;
+}
+
+.group-damage-summary {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .context-bad-status-editor {
@@ -1210,6 +1229,12 @@ input[type="range"] {
 .token-bad-status.critical {
   border-color: rgba(143, 101, 22, 0.72);
   color: #79530f;
+}
+
+.token-bad-status.attack {
+  border-color: rgba(181, 31, 55, 0.72);
+  background: rgba(255, 240, 229, 0.97);
+  color: #9f2736;
 }
 
 .token.pc {
