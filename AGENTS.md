@@ -2,9 +2,10 @@
 
 ## Project overview
 
-This repository contains a Japanese-language combat board for Double Cross The 3rd Edition.
-The user-facing application manages engagements, PC/enemy tokens, initiative, damage,
-status effects, drawing objects, turn progress, import/export, undo/redo, and shared rooms.
+This repository contains a Japanese-language combat board and FS judgment manager for
+Double Cross The 3rd Edition. The user-facing application manages engagements, PC/enemy
+tokens, initiative, damage, status effects, drawing objects, FS progress and events,
+CCFOLIA roll-table authoring, import/export, undo/redo, and shared rooms.
 
 Keep user-facing copy in Japanese. Preserve existing behavior unless the request explicitly
 changes it, especially empty names, object limits, room links, and imported legacy state.
@@ -16,9 +17,15 @@ changes it, especially empty names, object limits, room links, and imported lega
 - `public/board/app.js`: board state, rendering, interaction, history, and local persistence.
 - `public/board/sync.js`: Supabase Realtime, room participation, polling, and save queue.
 - `public/board/sync-merge.js`: field-level patches and concurrent-state merging.
+- `public/board/fs/index.html`: deployed FS manager and roll-table builder markup.
+- `public/board/fs/styles.css`: FS manager, responsive, and compact-window styling.
+- `public/board/fs/app.js`: FS interactions, history, local roll-table library, and fallback persistence.
+- `public/board/fs/fs-core.js`: FS normalization/merge logic and roll-table parsing/validation.
+- `public/board/fs/sync.js`: FS Supabase synchronization and combat-board PC roster linking.
 - `supabase/dx3rd_rooms.sql`: database table, RPC functions, grants, and access checks.
 - `tests/rendered-html.test.mjs`: static application contract tests.
 - `tests/sync-merge.test.mjs`: concurrent editing and patch tests.
+- `tests/fs-core.test.mjs`: FS progression, merge, and roll-table tests.
 - `docs/MANUAL.md` and `docs/IMAGE_GUIDE.md`: user manuals.
 
 GitHub Pages deploys only `public/board/`. Treat that directory as the source of truth for
@@ -33,6 +40,7 @@ keep it synchronized with `public/board/sync-merge.js` or update the test import
 
 - `app/page.tsx` redirects the vinext/Next entry point to `/board/`.
 - `app/api/board/route.ts` is the D1-backed single-board fallback used outside GitHub Pages.
+- `app/api/fs/route.ts` is the independent D1-backed FS-state fallback outside GitHub Pages.
 - `.openai/hosting.json`, `vite.config.ts`, and `worker/index.ts` support the vinext/Cloudflare
   runtime. They are separate from the GitHub Pages + Supabase shared-room deployment.
 
@@ -47,6 +55,9 @@ migration plan.
 - Preserve compatibility with the legacy local-storage keys already read by `loadState()`.
 - Stable object IDs are required for concurrent patch merging. Never identify objects by
   array position or display name.
+- FS participants, events, and history also require stable IDs. FS progress is derived from
+  history entries so simultaneous additions are not lost.
+- CCFOLIA roll tables are versioned LocalStorage data and must never be added to shared FS state.
 - PC and enemy limits are both 20 unless the product requirement changes.
 - The board uses fixed pixel coordinates. Account for object bounds when moving or resizing
   so viewport or page scaling does not shift stored positions.

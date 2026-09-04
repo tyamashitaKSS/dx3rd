@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DX3rd Combat Board</title>
-    <link rel="stylesheet" href="styles.css?v=20260904-19" />
+    <link rel="stylesheet" href="styles.css?v=20260904-20" />
   </head>
   <body>
     <main class="app-shell">
@@ -17,6 +17,10 @@
               <p>Battle Engage Board</p>
             </div>
           </div>
+          <nav class="page-switch" aria-label="管理画面">
+            <a class="active" href="./" aria-current="page">戦闘ボード</a>
+            <a id="fsPageLink" href="fs/">FS判定</a>
+          </nav>
         </section>
 
         <section id="syncPanel" class="panel sync-panel" hidden>
@@ -354,7 +358,7 @@
     <script>
       window.DX3RD_USE_PEER_SYNC = window.location.hostname.endsWith(".github.io");
     </script>
-    <script src="app.js?v=20260904-19"></script>
+    <script src="app.js?v=20260904-20"></script>
     <script type="module" src="sync.js?v=20260810-14"></script>
   </body>
 </html>

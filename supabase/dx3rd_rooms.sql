@@ -5,8 +5,16 @@ create table if not exists public.dx3rd_rooms (
   secret_hash text not null check (length(secret_hash) = 64),
   board_state jsonb not null,
   revision bigint not null default 1,
-  updated_at timestamptz not null default timezone('utc', now())
+  updated_at timestamptz not null default timezone('utc', now()),
+  fs_state jsonb,
+  fs_revision bigint not null default 0,
+  fs_updated_at timestamptz
 );
+
+alter table public.dx3rd_rooms
+  add column if not exists fs_state jsonb,
+  add column if not exists fs_revision bigint not null default 0,
+  add column if not exists fs_updated_at timestamptz;
 
 alter table public.dx3rd_rooms enable row level security;
 revoke all on table public.dx3rd_rooms from anon, authenticated;
@@ -314,10 +322,184 @@ begin
 end;
 $$;
 
+create or replace function public.dx3rd_load_fs(
+  p_room_id text,
+  p_room_secret text
+)
+returns table (
+  fs_state jsonb,
+  fs_revision bigint,
+  fs_updated_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public, extensions
+as $$
+  select room.fs_state, room.fs_revision, room.fs_updated_at
+  from public.dx3rd_rooms as room
+  where room.room_id = p_room_id
+    and room.secret_hash = encode(extensions.digest(p_room_secret, 'sha256'), 'hex')
+  limit 1;
+$$;
+
+create or replace function public.dx3rd_apply_fs_patch(
+  p_room_id text,
+  p_room_secret text,
+  p_patch jsonb,
+  p_initial_state jsonb,
+  p_initial_board_state jsonb
+)
+returns table (
+  fs_state jsonb,
+  fs_revision bigint,
+  fs_updated_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_secret_hash text;
+  v_state jsonb;
+  v_revision bigint;
+  v_updated_at timestamptz;
+  v_collection text;
+  v_items jsonb;
+  v_operation jsonb;
+begin
+  if length(p_room_id) not between 8 and 64
+    or length(p_room_secret) not between 8 and 64 then
+    raise exception 'invalid room credentials' using errcode = '22023';
+  end if;
+
+  if jsonb_typeof(p_patch) <> 'object'
+    or jsonb_typeof(p_initial_state) <> 'object'
+    or jsonb_typeof(p_initial_board_state) <> 'object' then
+    raise exception 'invalid FS state' using errcode = '22023';
+  end if;
+
+  if pg_column_size(p_patch) > 1048576
+    or pg_column_size(p_initial_state) > 1048576
+    or pg_column_size(p_initial_board_state) > 1048576 then
+    raise exception 'FS state is too large' using errcode = '22001';
+  end if;
+
+  v_secret_hash := encode(extensions.digest(p_room_secret, 'sha256'), 'hex');
+
+  insert into public.dx3rd_rooms (
+    room_id,
+    secret_hash,
+    board_state,
+    revision,
+    updated_at,
+    fs_state,
+    fs_revision,
+    fs_updated_at
+  )
+  values (
+    p_room_id,
+    v_secret_hash,
+    p_initial_board_state,
+    1,
+    timezone('utc', now()),
+    p_initial_state,
+    1,
+    timezone('utc', now())
+  )
+  on conflict (room_id) do nothing;
+
+  select coalesce(room.fs_state, p_initial_state), room.fs_revision
+  into v_state, v_revision
+  from public.dx3rd_rooms as room
+  where room.room_id = p_room_id
+    and room.secret_hash = v_secret_hash
+  for update;
+
+  if not found then
+    raise exception 'invalid room secret' using errcode = '42501';
+  end if;
+
+  v_state := v_state || coalesce(p_patch->'scalars', '{}'::jsonb);
+
+  foreach v_collection in array array['participants', 'events', 'history']
+  loop
+    v_items := coalesce(v_state->v_collection, '[]'::jsonb);
+
+    select coalesce(jsonb_agg(item), '[]'::jsonb)
+    into v_items
+    from jsonb_array_elements(v_items) as item
+    where not exists (
+      select 1
+      from jsonb_array_elements_text(
+        coalesce(
+          p_patch->'collections'->v_collection->'deletes',
+          '[]'::jsonb
+        )
+      ) as deleted(id)
+      where deleted.id = item->>'id'
+    );
+
+    for v_operation in
+      select upsert_item
+      from jsonb_array_elements(
+        coalesce(
+          p_patch->'collections'->v_collection->'upserts',
+          '[]'::jsonb
+        )
+      ) as upserts(upsert_item)
+    loop
+      if exists (
+        select 1
+        from jsonb_array_elements(v_items) as item
+        where item->>'id' = v_operation->>'id'
+      ) then
+        select jsonb_agg(
+          case
+            when item->>'id' = v_operation->>'id'
+              then item || coalesce(v_operation->'changes', '{}'::jsonb)
+            else item
+          end
+        )
+        into v_items
+        from jsonb_array_elements(v_items) as item;
+      else
+        v_items := v_items || jsonb_build_array(
+          coalesce(v_operation->'changes', '{}'::jsonb)
+          || jsonb_build_object('id', v_operation->>'id')
+        );
+      end if;
+    end loop;
+
+    v_state := jsonb_set(v_state, array[v_collection], v_items, true);
+  end loop;
+
+  if pg_column_size(v_state) > 1048576 then
+    raise exception 'FS state is too large' using errcode = '22001';
+  end if;
+
+  update public.dx3rd_rooms as room
+  set fs_state = v_state,
+      fs_revision = room.fs_revision + 1,
+      fs_updated_at = timezone('utc', now())
+  where room.room_id = p_room_id
+    and room.secret_hash = v_secret_hash
+  returning room.fs_state, room.fs_revision, room.fs_updated_at
+  into v_state, v_revision, v_updated_at;
+
+  return query
+  select v_state, v_revision, v_updated_at;
+end;
+$$;
+
 revoke all on function public.dx3rd_load_board(text, text) from public;
 revoke all on function public.dx3rd_save_board(text, text, jsonb) from public, anon, authenticated;
 revoke all on function public.dx3rd_compare_and_save_board(text, text, jsonb, bigint) from public;
 revoke all on function public.dx3rd_apply_board_patch(text, text, jsonb, jsonb) from public;
+revoke all on function public.dx3rd_load_fs(text, text) from public;
+revoke all on function public.dx3rd_apply_fs_patch(text, text, jsonb, jsonb, jsonb) from public;
 grant execute on function public.dx3rd_load_board(text, text) to anon, authenticated;
 grant execute on function public.dx3rd_compare_and_save_board(text, text, jsonb, bigint) to anon, authenticated;
 grant execute on function public.dx3rd_apply_board_patch(text, text, jsonb, jsonb) to anon, authenticated;
+grant execute on function public.dx3rd_load_fs(text, text) to anon, authenticated;
+grant execute on function public.dx3rd_apply_fs_patch(text, text, jsonb, jsonb, jsonb) to anon, authenticated;

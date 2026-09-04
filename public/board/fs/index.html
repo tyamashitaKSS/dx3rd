@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DX3rd FS判定管理</title>
+    <link rel="stylesheet" href="styles.css?v=20260904-20" />
+  </head>
+  <body>
+    <main id="fsApp" class="fs-app">
+      <header class="topbar">
+        <div class="brand-block">
+          <span class="brand-mark">DX</span>
+          <div>
+            <h1>Double Cross 3rd</h1>
+            <p>FS判定管理</p>
+          </div>
+        </div>
+        <nav class="page-nav" aria-label="管理画面">
+          <a id="battlePageLink" href="../">戦闘ボード</a>
+          <a class="active" href="./" aria-current="page">FS判定</a>
+        </nav>
+        <div class="topbar-actions">
+          <button id="undoFs" class="ghost" type="button" title="元に戻す (Ctrl+Z)">元に戻す</button>
+          <button id="redoFs" class="ghost" type="button" title="やり直す (Ctrl+Y)">やり直す</button>
+          <button id="openFsMiniWindow" class="ghost" type="button">小窓表示</button>
+        </div>
+      </header>
+
+      <div class="fs-layout">
+        <aside class="settings-sidebar" aria-label="FS判定設定">
+          <section id="syncPanel" class="panel sync-panel" hidden>
+            <div class="section-heading">
+              <h2>共有ルーム</h2>
+              <span id="syncStatus" class="sync-status" aria-live="polite">接続中</span>
+            </div>
+            <div class="sync-room">
+              <code id="syncRoomCode"></code>
+              <span id="syncParticipants">1人</span>
+            </div>
+            <form id="joinRoomForm" class="join-form">
+              <label for="roomJoinInput">ルームID</label>
+              <input id="roomJoinInput" type="text" autocomplete="off" spellcheck="false" />
+              <button type="submit">参加</button>
+            </form>
+            <button id="copyInviteLink" type="button">招待リンクをコピー</button>
+          </section>
+
+          <section class="panel settings-panel">
+            <div class="section-heading">
+              <h2>FS判定設定</h2>
+              <span class="section-kicker">1ルーム1件</span>
+            </div>
+            <form id="fsSettingsForm" class="form-stack">
+              <label>
+                FS名
+                <input data-fs-field="title" type="text" maxlength="80" autocomplete="off" placeholder="例: 崩落する研究所から脱出せよ" />
+              </label>
+              <label>
+                判定内容
+                <textarea data-fs-field="description" rows="3" maxlength="1000" placeholder="判定の目的や状況"></textarea>
+              </label>
+              <label>
+                終了条件
+                <textarea data-fs-field="endCondition" rows="2" maxlength="500" placeholder="進行値到達後の条件など"></textarea>
+              </label>
+              <div class="field-grid two-columns">
+                <label>
+                  終了進行値
+                  <input data-fs-field="targetProgress" type="number" min="1" max="999" step="1" inputmode="numeric" />
+                </label>
+                <label>
+                  ラウンド制限
+                  <input data-fs-field="roundLimit" type="number" min="1" max="99" step="1" inputmode="numeric" />
+                </label>
+              </div>
+              <label>
+                判定技能
+                <input data-fs-field="skill" type="text" maxlength="120" autocomplete="off" placeholder="例: 〈知覚〉〈RC〉" />
+              </label>
+              <div class="field-grid two-columns">
+                <label>
+                  難易度
+                  <input data-fs-field="difficulty" type="number" min="-99" max="999" step="1" inputmode="numeric" />
+                </label>
+                <label>
+                  最大達成値
+                  <input data-fs-field="maxAchievement" type="number" min="1" max="999" step="1" inputmode="numeric" />
+                </label>
+              </div>
+              <label>
+                支援判定
+                <input data-fs-field="supportCheck" type="text" maxlength="160" autocomplete="off" placeholder="技能・難易度・効果" />
+              </label>
+              <label>
+                経験点
+                <input data-fs-field="experiencePoints" type="number" min="0" max="999" step="1" inputmode="numeric" />
+              </label>
+              <label>
+                メモ
+                <textarea data-fs-field="memo" rows="4" maxlength="2000"></textarea>
+              </label>
+            </form>
+          </section>
+
+          <section class="panel data-panel">
+            <h2>FSデータ</h2>
+            <div class="button-grid">
+              <button id="exportFs" type="button">エクスポート</button>
+              <button id="importFs" type="button" class="ghost">インポート</button>
+              <button id="resetFs" type="button" class="danger">初期化</button>
+            </div>
+            <input id="importFsFile" type="file" accept="application/json,.json" hidden />
+          </section>
+        </aside>
+
+        <section id="fsWorkspace" class="fs-workspace" aria-label="FS判定進行">
+          <section class="progress-band">
+            <div class="progress-copy">
+              <span class="eyebrow">現在のFS判定</span>
+              <h2 id="fsTitleDisplay">名称未設定</h2>
+              <p id="fsDescriptionDisplay">左側の設定から判定内容を入力してください。</p>
+              <div id="fsConditionSummary" class="condition-summary"></div>
+            </div>
+            <div class="progress-metrics">
+              <div class="metric round-metric">
+                <span>ラウンド</span>
+                <strong id="roundDisplay">1 / 5</strong>
+              </div>
+              <div class="metric">
+                <span>進行値</span>
+                <strong><span id="progressValue">0</span> / <span id="targetProgressValue">10</span></strong>
+              </div>
+              <div id="statusBadge" class="status-badge" data-status="active">進行中</div>
+            </div>
+            <div class="progress-track" aria-label="FS進行度">
+              <div id="progressBar" class="progress-bar"></div>
+            </div>
+            <div id="fsWarnings" class="warning-list" aria-live="polite"></div>
+            <div class="progress-actions">
+              <button id="advanceActor" type="button">次の手番</button>
+              <button id="newRound" type="button" class="ghost">次のラウンド</button>
+              <div class="status-actions" role="group" aria-label="FS判定結果">
+                <button type="button" class="success-button" data-set-status="success">成功</button>
+                <button type="button" class="failure-button" data-set-status="failure">失敗</button>
+                <button type="button" class="ghost" data-set-status="active">進行中へ戻す</button>
+              </div>
+            </div>
+          </section>
+
+          <div class="compact-view-controls" hidden>
+            <button type="button" data-compact-view="progress" aria-pressed="true">進行</button>
+            <button type="button" data-compact-view="participants" aria-pressed="false">参加者</button>
+            <button id="closeCompactFs" type="button" class="ghost">小窓を閉じる</button>
+          </div>
+
+          <div class="work-grid">
+            <div class="primary-column">
+              <section class="surface participants-surface">
+                <div class="section-heading">
+                  <div>
+                    <span class="section-kicker">行動値順</span>
+                    <h2>参加者</h2>
+                  </div>
+                  <button id="addParticipant" type="button" class="ghost compact-button">参加者を追加</button>
+                </div>
+                <p id="boardRosterStatus" class="inline-note">戦闘ボードのPCを読み込んでいます。</p>
+                <div id="participantList" class="participant-list"></div>
+              </section>
+
+              <section class="surface judgment-surface">
+                <div class="section-heading">
+                  <div>
+                    <span class="section-kicker">結果を記録</span>
+                    <h2>判定入力</h2>
+                  </div>
+                  <div class="segmented-control" role="group" aria-label="判定種別">
+                    <button type="button" data-entry-type="progress" aria-pressed="true">進行判定</button>
+                    <button type="button" data-entry-type="support" aria-pressed="false">支援判定</button>
+                  </div>
+                </div>
+                <form id="judgmentForm" class="judgment-form">
+                  <label>
+                    判定者
+                    <select id="judgmentParticipant"></select>
+                  </label>
+                  <label>
+                    達成値
+                    <input id="achievementInput" type="number" min="-9999" max="9999" step="1" inputmode="numeric" />
+                  </label>
+                  <label id="progressDeltaField">
+                    加算する進行値
+                    <input id="progressDeltaInput" type="number" min="-999" max="999" step="1" inputmode="numeric" />
+                    <span id="progressSuggestion" class="field-help"></span>
+                  </label>
+                  <label id="supportResultField" hidden>
+                    結果
+                    <select id="supportResultInput">
+                      <option value="success">成功</option>
+                      <option value="failure">失敗</option>
+                    </select>
+                  </label>
+                  <label class="note-field">
+                    メモ
+                    <input id="judgmentNote" type="text" maxlength="240" autocomplete="off" placeholder="演出、使用した技能など" />
+                  </label>
+                  <button id="recordJudgment" type="submit">履歴へ追加</button>
+                </form>
+              </section>
+
+              <section class="surface history-surface">
+                <div class="section-heading">
+                  <div>
+                    <span class="section-kicker">進行値は履歴から集計</span>
+                    <h2>判定履歴</h2>
+                  </div>
+                  <button id="addAdjustment" type="button" class="ghost compact-button">進行値を調整</button>
+                </div>
+                <div id="historyList" class="history-list"></div>
+              </section>
+            </div>
+
+            <aside class="event-column" aria-label="進行イベント">
+              <section class="surface event-surface">
+                <div class="section-heading">
+                  <div>
+                    <span class="section-kicker">到達時に公開</span>
+                    <h2>進行イベント</h2>
+                  </div>
+                  <button id="newEvent" type="button" class="ghost compact-button">新規</button>
+                </div>
+                <form id="eventForm" class="event-form" hidden>
+                  <input id="eventId" type="hidden" />
+                  <div class="field-grid event-heading-fields">
+                    <label>
+                      進行値
+                      <input id="eventThreshold" type="number" min="0" max="999" step="1" inputmode="numeric" />
+                    </label>
+                    <label>
+                      名称
+                      <input id="eventTitle" type="text" maxlength="80" autocomplete="off" />
+                    </label>
+                  </div>
+                  <label>
+                    内容
+                    <textarea id="eventBody" rows="4" maxlength="1200"></textarea>
+                  </label>
+                  <label>
+                    変更後の判定技能
+                    <input id="eventSkill" type="text" maxlength="120" autocomplete="off" />
+                  </label>
+                  <div class="field-grid event-heading-fields">
+                    <label>
+                      変更後の難易度
+                      <input id="eventDifficulty" type="number" min="-99" max="999" step="1" inputmode="numeric" />
+                    </label>
+                    <label>
+                      変更後の支援判定
+                      <input id="eventSupportCheck" type="text" maxlength="160" autocomplete="off" />
+                    </label>
+                  </div>
+                  <div class="form-actions">
+                    <button type="submit">保存</button>
+                    <button id="cancelEvent" type="button" class="ghost">キャンセル</button>
+                  </div>
+                </form>
+                <div id="eventList" class="event-list"></div>
+              </section>
+            </aside>
+          </div>
+
+          <section class="surface roll-table-surface">
+            <div class="section-heading roll-table-heading">
+              <div>
+                <span class="section-kicker">ココフォリア用</span>
+                <h2>ダイス表作成</h2>
+              </div>
+              <span class="local-only-badge">端末保存</span>
+            </div>
+            <div class="roll-table-layout">
+              <aside class="table-library">
+                <div class="library-actions">
+                  <button id="newRollTable" type="button">新規</button>
+                  <button id="duplicateRollTable" type="button" class="ghost">複製</button>
+                </div>
+                <div id="rollTableList" class="roll-table-list"></div>
+                <button id="deleteRollTable" type="button" class="danger">選択中の表を削除</button>
+                <hr />
+                <div class="library-json-actions">
+                  <button id="exportRollTables" type="button" class="ghost">JSON書出</button>
+                  <label>
+                    読込方法
+                    <select id="rollTableImportMode">
+                      <option value="append">追加</option>
+                      <option value="replace">すべて置換</option>
+                    </select>
+                  </label>
+                  <button id="importRollTables" type="button" class="ghost">JSON読込</button>
+                </div>
+                <input id="importRollTablesFile" type="file" accept="application/json,.json" hidden />
+              </aside>
+
+              <div class="table-editor">
+                <div class="field-grid table-meta-fields">
+                  <label>
+                    表の名前
+                    <input id="rollTableName" type="text" maxlength="120" autocomplete="off" />
+                  </label>
+                  <label>
+                    ダイス式
+                    <input id="rollTableFormula" type="text" maxlength="16" autocomplete="off" spellcheck="false" placeholder="1D6" />
+                  </label>
+                </div>
+                <div class="table-row-heading">
+                  <strong>出目と結果</strong>
+                  <button id="addRollTableRow" type="button" class="ghost compact-button">行を追加</button>
+                </div>
+                <div id="rollTableRows" class="roll-table-rows"></div>
+
+                <details class="bulk-import">
+                  <summary>テキストを一括取り込み</summary>
+                  <textarea id="bulkRollTableInput" rows="7" spellcheck="false"></textarea>
+                  <button id="parseRollTableText" type="button" class="ghost">現在の表へ取り込む</button>
+                </details>
+              </div>
+
+              <aside class="command-preview">
+                <h3>生成結果</h3>
+                <div id="rollTableMessages" class="validation-messages" aria-live="polite"></div>
+                <textarea id="rollTablePreview" rows="18" readonly spellcheck="false"></textarea>
+                <button id="copyRollTableCommand" type="button">コマンドをコピー</button>
+                <p id="copyRollTableStatus" class="copy-status" aria-live="polite"></p>
+              </aside>
+            </div>
+          </section>
+        </section>
+      </div>
+
+      <section id="miniWindowPlaceholder" class="mini-placeholder" hidden>
+        <h2>FS判定は小窓で表示中です</h2>
+        <p>小窓を閉じると、この画面へ戻ります。</p>
+        <button id="restoreFsMiniWindow" type="button">この画面へ戻す</button>
+      </section>
+    </main>
+
+    <script>
+      window.DX3RD_USE_PEER_SYNC = window.location.hostname.endsWith(".github.io");
+    </script>
+    <script type="module" src="app.js?v=20260904-20"></script>
+    <script type="module" src="sync.js?v=20260904-20"></script>
+  </body>
+</html>

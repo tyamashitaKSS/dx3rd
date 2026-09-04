@@ -89,6 +89,34 @@ button:disabled {
   gap: 12px;
 }
 
+.page-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  overflow: hidden;
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+}
+
+.page-switch a {
+  padding: 8px 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+  text-decoration: none;
+}
+
+.page-switch a + a {
+  border-left: 1px solid var(--line);
+}
+
+.page-switch a.active {
+  background: var(--ink);
+  color: #fff;
+}
+
 .mark {
   display: grid;
   width: 52px;

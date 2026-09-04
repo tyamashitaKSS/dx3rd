@@ -101,6 +101,7 @@ const engageEnemyCount = document.querySelector("#engageEnemyCount");
 const engageDamageInput = document.querySelector("#engageDamageInput");
 const applyEngageEnemyDamageButton = document.querySelector("#applyEngageEnemyDamage");
 const applyAllEnemyDamageFromEngageButton = document.querySelector("#applyAllEnemyDamageFromEngage");
+const fsPageLink = document.querySelector("#fsPageLink");
 
 let state = loadState();
 let selected = { type: "engage", id: state.engages[0]?.id ?? null };
@@ -2741,12 +2742,24 @@ function handleGlobalKeyDown(event) {
   }
 }
 
+function updateFsPageLink() {
+  if (!fsPageLink) {
+    return;
+  }
+  const destination = new URL("fs/", window.location.href);
+  destination.searchParams.delete("compact");
+  destination.hash = window.location.hash;
+  fsPageLink.href = destination.href;
+}
+
 window.DX3RDBoard = Object.freeze({
   applySharedState,
   serializeState,
 });
 
 registerInteractionWindow(window);
+updateFsPageLink();
+window.addEventListener("hashchange", updateFsPageLink);
 initializeStandaloneCompactMode();
 render();
 initializeRemoteState();
