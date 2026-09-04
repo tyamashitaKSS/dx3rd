@@ -117,11 +117,48 @@ export function calculateProgress(state) {
   );
 }
 
+export function getEffectiveFsConditions(state) {
+  const conditions = {
+    skill: normalizeText(state?.skill),
+    difficulty: clampInteger(state?.difficulty, -99, 999, 8),
+    supportCheck: normalizeText(state?.supportCheck),
+    sources: {
+      skill: null,
+      difficulty: null,
+      supportCheck: null,
+    },
+  };
+  const events = (Array.isArray(state?.events) ? state.events : [])
+    .filter((event) => event?.revealed)
+    .sort((left, right) =>
+      (Number(left?.threshold) || 0) - (Number(right?.threshold) || 0)
+      || String(left?.id ?? "").localeCompare(String(right?.id ?? "")),
+    );
+
+  events.forEach((event) => {
+    const source = normalizeText(event.title) || "名称なし";
+    if (event.newSkill) {
+      conditions.skill = normalizeText(event.newSkill);
+      conditions.sources.skill = source;
+    }
+    if (event.newDifficulty !== "" && event.newDifficulty != null) {
+      conditions.difficulty = clampInteger(event.newDifficulty, -99, 999, conditions.difficulty);
+      conditions.sources.difficulty = source;
+    }
+    if (event.newSupportCheck) {
+      conditions.supportCheck = normalizeText(event.newSupportCheck);
+      conditions.sources.supportCheck = source;
+    }
+  });
+
+  return conditions;
+}
+
 export function suggestProgressDelta(achievement, difficulty, maxAchievement) {
   const value = Number(achievement);
   const target = Number(difficulty);
   const cap = Number(maxAchievement);
-  if (!Number.isFinite(value) || !Number.isFinite(target) || value < target) {
+  if (!Number.isFinite(value) || !Number.isFinite(target) || value < 0 || value < target) {
     return 0;
   }
   const capped = Math.min(value, Number.isFinite(cap) && cap > 0 ? cap : value);

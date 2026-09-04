@@ -466,6 +466,12 @@ input:read-only {
   overflow-wrap: anywhere;
 }
 
+.condition-summary .event-derived {
+  border-color: #c8a45f;
+  background: var(--gold-soft);
+  color: #70480b;
+}
+
 .progress-metrics {
   display: flex;
   align-items: center;
@@ -514,8 +520,22 @@ input:read-only {
   color: var(--danger);
 }
 
-.progress-track {
+.progress-scale {
   grid-column: 1 / -1;
+  position: relative;
+  height: 18px;
+}
+
+.progress-scale.has-event-pins {
+  height: 42px;
+  margin-top: 2px;
+}
+
+.progress-track {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
   height: 18px;
   overflow: hidden;
   border: 1px solid #cfc6b8;
@@ -530,6 +550,59 @@ input:read-only {
   height: 100%;
   background: linear-gradient(90deg, var(--teal), #3b8f83);
   transition: width 260ms ease;
+}
+
+.progress-event-pins {
+  position: absolute;
+  inset: 0 0 18px;
+  pointer-events: none;
+}
+
+.progress-event-pins:empty {
+  display: none;
+}
+
+.progress-event-pin {
+  --pin-color: #766f65;
+  position: absolute;
+  bottom: 2px;
+  left: clamp(13px, var(--event-position), calc(100% - 13px));
+  z-index: 2;
+  display: grid;
+  min-width: 25px;
+  height: 22px;
+  padding: 0 4px;
+  place-items: center;
+  transform: translateX(-50%);
+  border: 2px solid var(--pin-color);
+  border-radius: 11px;
+  background: var(--surface);
+  color: var(--pin-color);
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 2px 5px rgba(32, 39, 42, 0.18);
+}
+
+.progress-event-pin::after {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  width: 2px;
+  height: 15px;
+  transform: translateX(-50%);
+  background: var(--pin-color);
+  content: "";
+}
+
+.progress-event-pin.reached {
+  --pin-color: #a96a12;
+  background: var(--gold-soft);
+}
+
+.progress-event-pin.revealed {
+  --pin-color: var(--green);
+  background: var(--green-soft);
 }
 
 .warning-list {
@@ -717,6 +790,11 @@ input:read-only {
   grid-template-columns: minmax(130px, 1fr) 100px 130px minmax(160px, 1.1fr) auto;
   gap: 10px;
   margin-top: 14px;
+}
+
+#progressDeltaField[hidden],
+#supportResultField[hidden] {
+  display: none;
 }
 
 .field-help {

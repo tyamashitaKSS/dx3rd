@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DX3rd FS判定管理</title>
-    <link rel="stylesheet" href="styles.css?v=20260904-21" />
+    <link rel="stylesheet" href="styles.css?v=20260904-22" />
   </head>
   <body>
     <main id="fsApp" class="fs-app">
@@ -133,8 +133,11 @@
               </div>
               <div id="statusBadge" class="status-badge" data-status="active">進行中</div>
             </div>
-            <div class="progress-track" aria-label="FS進行度">
-              <div id="progressBar" class="progress-bar"></div>
+            <div id="progressScale" class="progress-scale" aria-label="FS進行度">
+              <div class="progress-track">
+                <div id="progressBar" class="progress-bar"></div>
+              </div>
+              <div id="progressEventPins" class="progress-event-pins" aria-label="進行イベント位置"></div>
             </div>
             <div id="fsWarnings" class="warning-list" aria-live="polite"></div>
             <div class="progress-actions">
@@ -174,7 +177,7 @@
                   </label>
                   <label>
                     達成値
-                    <input id="achievementInput" type="number" min="-9999" max="9999" step="1" inputmode="numeric" />
+                    <input id="achievementInput" type="number" min="0" max="9999" step="1" inputmode="numeric" />
                   </label>
                   <label id="progressDeltaField">
                     加算する進行値
@@ -346,7 +349,7 @@
     <script>
       window.DX3RD_USE_PEER_SYNC = window.location.hostname.endsWith(".github.io");
     </script>
-    <script type="module" src="app.js?v=20260904-21"></script>
-    <script type="module" src="sync.js?v=20260904-21"></script>
+    <script type="module" src="app.js?v=20260904-22"></script>
+    <script type="module" src="sync.js?v=20260904-22"></script>
   </body>
 </html>

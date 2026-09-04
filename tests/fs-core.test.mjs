@@ -6,6 +6,7 @@ import {
   createFsPatch,
   createInitialFsState,
   generateRollTableCommand,
+  getEffectiveFsConditions,
   getValidOutcomes,
   mergeRollTableLibraryImport,
   mergeFsStates,
@@ -30,10 +31,34 @@ function createState() {
 }
 
 test("suggests FS progress from achievement, difficulty, and maximum", () => {
+  assert.equal(suggestProgressDelta(-1, -5, 30), 0);
   assert.equal(suggestProgressDelta(7, 8, 30), 0);
   assert.equal(suggestProgressDelta(8, 8, 30), 1);
   assert.equal(suggestProgressDelta(24, 8, 30), 3);
   assert.equal(suggestProgressDelta(48, 8, 30), 4);
+});
+
+test("applies revealed event conditions in progress order", () => {
+  const state = createState();
+  state.skill = "〈知覚〉";
+  state.difficulty = 8;
+  state.supportCheck = "〈調達〉 7";
+  state.events = [
+    { id: "event-8", threshold: 8, title: "終盤", newSkill: "", newDifficulty: 12, newSupportCheck: "", revealed: true },
+    { id: "event-hidden", threshold: 6, title: "非公開", newSkill: "〈RC〉", newDifficulty: 20, newSupportCheck: "", revealed: false },
+    { id: "event-4", threshold: 4, title: "警戒網", newSkill: "〈情報:ウェブ〉", newDifficulty: 10, newSupportCheck: "〈知識:機械工学〉 8", revealed: true },
+  ];
+
+  assert.deepEqual(getEffectiveFsConditions(state), {
+    skill: "〈情報:ウェブ〉",
+    difficulty: 12,
+    supportCheck: "〈知識:機械工学〉 8",
+    sources: {
+      skill: "警戒網",
+      difficulty: "終盤",
+      supportCheck: "警戒網",
+    },
+  });
 });
 
 test("derives progress from progress history and excludes support history", () => {

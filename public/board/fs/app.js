@@ -3,13 +3,14 @@ import {
   createInitialFsState,
   createInitialRollTable,
   generateRollTableCommand,
+  getEffectiveFsConditions,
   mergeRollTableLibraryImport,
   mergeFsStates,
   normalizeFsState,
   normalizeRollTableLibrary,
   parseRollTableText,
   suggestProgressDelta,
-} from "./fs-core.js?v=20260904-21";
+} from "./fs-core.js?v=20260904-22";
 
 const FS_STORAGE_KEY = "dx3rd-fs-manager-v1";
 const ROLL_TABLE_STORAGE_KEY = "dx3rd-fs-roll-tables-v1";
@@ -27,7 +28,9 @@ const fsConditionSummary = document.querySelector("#fsConditionSummary");
 const roundDisplay = document.querySelector("#roundDisplay");
 const progressValue = document.querySelector("#progressValue");
 const targetProgressValue = document.querySelector("#targetProgressValue");
+const progressScale = document.querySelector("#progressScale");
 const progressBar = document.querySelector("#progressBar");
+const progressEventPins = document.querySelector("#progressEventPins");
 const statusBadge = document.querySelector("#statusBadge");
 const fsWarnings = document.querySelector("#fsWarnings");
 const undoButton = document.querySelector("#undoFs");
@@ -345,6 +348,7 @@ function render() {
   renderJudgmentParticipants();
   renderHistory();
   renderEvents();
+  updateProgressSuggestion();
   renderHistoryControls();
 }
 
@@ -358,23 +362,28 @@ function renderSettings() {
 
 function renderProgress() {
   const progress = calculateProgress(state);
+  const conditions = getEffectiveFsConditions(state);
   fsTitleDisplay.textContent = state.title || "名称未設定";
   fsDescriptionDisplay.textContent = state.description || "判定内容は未設定です。";
   const conditionLabels = [
-    `判定: ${state.skill || "技能未設定"}`,
-    `難易度 ${state.difficulty}`,
-    `最大達成値 ${state.maxAchievement}`,
+    { label: `判定: ${conditions.skill || "技能未設定"}`, source: conditions.sources.skill },
+    { label: `難易度 ${conditions.difficulty}`, source: conditions.sources.difficulty },
+    { label: `最大達成値 ${state.maxAchievement}`, source: null },
   ];
-  if (state.supportCheck) conditionLabels.push(`支援: ${state.supportCheck}`);
-  if (state.endCondition) conditionLabels.push(`終了条件: ${state.endCondition}`);
-  if (state.experiencePoints > 0) conditionLabels.push(`経験点 ${state.experiencePoints}`);
+  if (conditions.supportCheck) conditionLabels.push({
+    label: `支援: ${conditions.supportCheck}`,
+    source: conditions.sources.supportCheck,
+  });
+  if (state.endCondition) conditionLabels.push({ label: `終了条件: ${state.endCondition}`, source: null });
+  if (state.experiencePoints > 0) conditionLabels.push({ label: `経験点 ${state.experiencePoints}`, source: null });
   fsConditionSummary.innerHTML = conditionLabels
-    .map((label) => `<span>${escapeHtml(label)}</span>`)
+    .map(({ label, source }) => `<span${source ? ` class="event-derived" title="進行イベント「${escapeAttribute(source)}」を反映中"` : ""}>${escapeHtml(label)}</span>`)
     .join("");
   roundDisplay.textContent = `${state.round} / ${state.roundLimit}`;
   progressValue.textContent = String(progress);
   targetProgressValue.textContent = String(state.targetProgress);
   progressBar.style.width = `${Math.max(0, Math.min(100, (progress / state.targetProgress) * 100))}%`;
+  renderProgressEventPins(progress);
   const statusLabels = { active: "進行中", success: "成功", failure: "失敗" };
   statusBadge.dataset.status = state.status;
   statusBadge.textContent = statusLabels[state.status];
@@ -388,6 +397,27 @@ function renderProgress() {
   const reachedUnrevealed = state.events.filter((event) => progress >= event.threshold && !event.revealed).length;
   if (reachedUnrevealed > 0) warnings.push(`公開待ちイベント ${reachedUnrevealed}件`);
   fsWarnings.innerHTML = warnings.map((label) => `<span class="warning-chip">${escapeHtml(label)}</span>`).join("");
+}
+
+function renderProgressEventPins(progress) {
+  const groups = new Map();
+  state.events.forEach((event) => {
+    const threshold = Math.max(0, Number(event.threshold) || 0);
+    const group = groups.get(threshold) ?? [];
+    group.push(event);
+    groups.set(threshold, group);
+  });
+  const pins = [...groups.entries()].sort(([left], [right]) => left - right);
+  progressScale.classList.toggle("has-event-pins", pins.length > 0);
+  progressEventPins.innerHTML = pins.map(([threshold, events]) => {
+    const percentage = Math.max(0, Math.min(100, (threshold / state.targetProgress) * 100));
+    const reached = progress >= threshold;
+    const revealed = events.some((event) => event.revealed);
+    const names = events.map((event) => event.title || "名称なし").join(" / ");
+    const status = revealed ? "公開済み" : reached ? "公開待ち" : "未到達";
+    const label = `進行値${threshold}: ${names}（${status}）`;
+    return `<span class="progress-event-pin${reached ? " reached" : ""}${revealed ? " revealed" : ""}" style="--event-position: ${percentage}%" role="img" aria-label="${escapeAttribute(label)}" title="${escapeAttribute(label)}"><span>${threshold}</span></span>`;
+  }).join("");
 }
 
 function getSortedParticipants() {
@@ -427,10 +457,10 @@ function renderTurnStateButton(participant, value, label) {
 function renderJudgmentParticipants() {
   const previous = judgmentParticipant.value;
   const options = [
-    '<option value="">GM調整</option>',
     ...getSortedParticipants().map((participant) =>
       `<option value="${escapeAttribute(participant.id)}">${escapeHtml(participant.name || "名称なし")}（行動値${participant.initiative}）</option>`,
     ),
+    '<option value="">GM調整</option>',
   ];
   judgmentParticipant.innerHTML = options.join("");
   if ([...judgmentParticipant.options].some((option) => option.value === previous)) {
@@ -572,28 +602,31 @@ function updateEntryType(nextType) {
 }
 
 function updateProgressSuggestion(force = false) {
+  const conditions = getEffectiveFsConditions(state);
   const achievement = achievementInput.value === "" ? null : Number(achievementInput.value);
   const suggestion = achievement == null
     ? 0
-    : suggestProgressDelta(achievement, state.difficulty, state.maxAchievement);
+    : suggestProgressDelta(achievement, conditions.difficulty, state.maxAchievement);
   if (entryType === "progress") {
     if (force || progressDeltaInput.value === "" || Number(progressDeltaInput.value) === lastSuggestedDelta) {
       progressDeltaInput.value = String(suggestion);
     }
     progressSuggestion.textContent = achievement == null
       ? ""
-      : `候補 ${formatSigned(suggestion)}（難易度${state.difficulty}・上限${state.maxAchievement}）`;
+      : `候補 ${formatSigned(suggestion)}（難易度${conditions.difficulty}・上限${state.maxAchievement}）`;
   } else if (achievement != null) {
-    supportResultInput.value = achievement >= state.difficulty ? "success" : "failure";
+    supportResultInput.value = achievement >= conditions.difficulty ? "success" : "failure";
   }
   lastSuggestedDelta = suggestion;
 }
 
 function recordJudgment(event) {
   event.preventDefault();
+  const conditions = getEffectiveFsConditions(state);
   const participant = state.participants.find((item) => item.id === judgmentParticipant.value);
   const achievement = achievementInput.value === "" ? null : Number(achievementInput.value);
-  if (achievement == null || !Number.isFinite(achievement)) {
+  if (achievement == null || !Number.isInteger(achievement) || achievement < 0 || achievement > 9999) {
+    achievementInput.value = "";
     achievementInput.focus();
     return;
   }
@@ -610,7 +643,7 @@ function recordJudgment(event) {
       participantName: participant?.name || "GM",
       achievement,
       delta,
-      success: entryType === "support" ? supportResultInput.value === "success" : achievement >= state.difficulty,
+      success: entryType === "support" ? supportResultInput.value === "success" : achievement >= conditions.difficulty,
       note: judgmentNote.value,
       createdAt: new Date().toISOString(),
     });
@@ -1111,7 +1144,15 @@ participantList.addEventListener("focusout", (event) => {
 entryTypeButtons.forEach((button) => {
   button.addEventListener("click", () => updateEntryType(button.dataset.entryType));
 });
-achievementInput.addEventListener("input", () => updateProgressSuggestion());
+achievementInput.addEventListener("keydown", (event) => {
+  if (event.key === "-") event.preventDefault();
+});
+achievementInput.addEventListener("input", () => {
+  if (achievementInput.value !== "" && Number(achievementInput.value) < 0) {
+    achievementInput.value = "";
+  }
+  updateProgressSuggestion();
+});
 judgmentForm.addEventListener("submit", recordJudgment);
 addAdjustmentButton.addEventListener("click", addAdjustment);
 historyList.addEventListener("click", (event) => {
