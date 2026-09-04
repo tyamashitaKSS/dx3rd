@@ -132,9 +132,10 @@ test("FS manager and roll-table builder are bundled for hosting", async () => {
   assert.match(html, /id="copyRollTableCommand"/);
   assert.match(html, /id="openFsMiniWindow"/);
   assert.doesNotMatch(html, /ハプニング結果|ハプニング履歴/);
-  assert.match(html, /styles\.css\?v=20260904-20/);
-  assert.match(html, /app\.js\?v=20260904-20/);
-  assert.match(html, /sync\.js\?v=20260904-20/);
+  assert.match(html, /styles\.css\?v=20260904-21/);
+  assert.match(html, /app\.js\?v=20260904-21/);
+  assert.match(html, /sync\.js\?v=20260904-21/);
+  assert.ok(html.indexOf('class="surface judgment-surface"') < html.indexOf('class="surface participants-surface"'));
   assert.match(script, /window\.DX3RDFS/);
   assert.match(script, /documentPictureInPicture\.requestWindow/);
   assert.match(script, /dx3rd-fs-roll-tables-v1/);

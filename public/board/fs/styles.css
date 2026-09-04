@@ -1175,6 +1175,10 @@ input:read-only {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .fs-workspace {
+    order: -1;
+  }
+
   .settings-sidebar {
     display: grid;
     grid-template-columns: minmax(260px, 0.8fr) minmax(340px, 1.2fr);

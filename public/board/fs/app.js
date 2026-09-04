@@ -9,7 +9,7 @@ import {
   normalizeRollTableLibrary,
   parseRollTableText,
   suggestProgressDelta,
-} from "./fs-core.js?v=20260904-20";
+} from "./fs-core.js?v=20260904-21";
 
 const FS_STORAGE_KEY = "dx3rd-fs-manager-v1";
 const ROLL_TABLE_STORAGE_KEY = "dx3rd-fs-roll-tables-v1";
