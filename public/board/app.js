@@ -18,6 +18,9 @@ const BAD_STATUSES = Object.freeze([
 ]);
 
 const board = document.querySelector("#board");
+const boardViewport = document.querySelector("#boardViewport");
+const battleArea = document.querySelector(".battle-area");
+const appShell = document.querySelector(".app-shell");
 const terrainLayer = document.querySelector("#terrainLayer");
 const shapeLayer = document.querySelector("#shapeLayer");
 const engageLayer = document.querySelector("#engageLayer");
@@ -69,6 +72,11 @@ const advanceTurnButton = document.querySelector("#advanceTurn");
 const resetRoundButton = document.querySelector("#resetRound");
 const roundLabel = document.querySelector("#roundLabel");
 const currentTurnLabel = document.querySelector("#currentTurnLabel");
+const openMiniWindowButton = document.querySelector("#openMiniWindow");
+const compactViewControls = document.querySelector("#compactViewControls");
+const compactViewButtons = [...compactViewControls.querySelectorAll("[data-compact-view]")];
+const miniWindowPlaceholder = document.querySelector("#miniWindowPlaceholder");
+const restoreMiniWindowButton = document.querySelector("#restoreMiniWindow");
 const tokenContextMenu = document.querySelector("#tokenContextMenu");
 const contextTokenName = document.querySelector("#contextTokenName");
 const closeTokenContextMenuButton = document.querySelector("#closeTokenContextMenu");
@@ -103,6 +111,10 @@ let attentionTimer = null;
 let capturedDamageExpression = null;
 let contextTokenId = null;
 let contextEngageId = null;
+let miniWindow = null;
+let miniWindowOpening = false;
+let compactView = "board";
+const standaloneCompactMode = new URLSearchParams(window.location.search).get("compact") === "1";
 let lastDamagePointerApplyAt = 0;
 const movementAnimations = new Map();
 let lastInitiativeClick = { id: null, at: 0 };
@@ -377,8 +389,10 @@ function reconcileSelectionAfterRemoteLoad() {
 }
 
 function isEditorActive() {
-  const activeElement = document.activeElement;
-  return activeElement instanceof HTMLElement && Boolean(activeElement.closest("#editorForm"));
+  const editorDocument = editorForm.ownerDocument;
+  const activeElement = editorDocument.activeElement;
+  const ElementClass = editorDocument.defaultView?.HTMLElement;
+  return Boolean(ElementClass && activeElement instanceof ElementClass && activeElement.closest("#editorForm"));
 }
 
 function applySharedState(candidate) {
@@ -1530,15 +1544,157 @@ function renderEngageContextMenu() {
 
 function positionContextMenu(menu, clientX, clientY) {
   const menuRect = menu.getBoundingClientRect();
-  menu.style.left = `${clamp(clientX, 8, window.innerWidth - menuRect.width - 8)}px`;
-  menu.style.top = `${clamp(clientY, 8, window.innerHeight - menuRect.height - 8)}px`;
+  const menuWindow = menu.ownerDocument.defaultView ?? window;
+  menu.style.left = `${clamp(clientX, 8, menuWindow.innerWidth - menuRect.width - 8)}px`;
+  menu.style.top = `${clamp(clientY, 8, menuWindow.innerHeight - menuRect.height - 8)}px`;
+}
+
+function setCompactView(nextView) {
+  compactView = nextView === "initiative" ? "initiative" : "board";
+  compactViewButtons.forEach((button) => {
+    const active = button.dataset.compactView === compactView;
+    button.setAttribute("aria-pressed", String(active));
+  });
+  const compactDocument = battleArea.ownerDocument;
+  compactDocument.body.dataset.compactView = compactView;
+  if (compactView === "board") {
+    compactDocument.defaultView?.requestAnimationFrame(updateCompactBoardScale);
+  }
+}
+
+function updateCompactBoardScale() {
+  const compactDocument = battleArea.ownerDocument;
+  if (!compactDocument.body.classList.contains("compact-mode") || compactView !== "board") {
+    return;
+  }
+  const compactWindow = compactDocument.defaultView;
+  const viewportWidth = Math.max(240, boardViewport.clientWidth);
+  const viewportTop = boardViewport.getBoundingClientRect().top;
+  const viewportHeight = Math.max(168, (compactWindow?.innerHeight ?? 720) - viewportTop - 10);
+  const scale = Math.min(1, viewportWidth / board.clientWidth, viewportHeight / board.clientHeight);
+  compactDocument.body.style.setProperty("--compact-board-scale", scale.toFixed(4));
+  compactDocument.body.style.setProperty("--compact-board-height", `${Math.round(board.clientHeight * scale)}px`);
+}
+
+function getCompactViewUrl() {
+  const url = new URL(window.location.href);
+  url.searchParams.set("compact", "1");
+  return url.href;
+}
+
+function openFallbackCompactWindow() {
+  const popup = window.open(
+    getCompactViewUrl(),
+    "dx3rd-compact-board",
+    "popup,width=560,height=720,resizable=yes,scrollbars=no",
+  );
+  if (!popup) {
+    window.alert("小窓を開けませんでした。ブラウザのポップアップ許可を確認してください。");
+  } else {
+    popup.focus();
+  }
+}
+
+async function openMiniWindow() {
+  if (miniWindowOpening) {
+    return;
+  }
+  if (standaloneCompactMode) {
+    if (window.opener && !window.opener.closed) {
+      window.opener.focus();
+      window.close();
+      return;
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.delete("compact");
+    window.location.assign(url.href);
+    return;
+  }
+  if (miniWindow && !miniWindow.closed) {
+    miniWindow.close();
+    return;
+  }
+  if (typeof window.documentPictureInPicture?.requestWindow !== "function") {
+    openFallbackCompactWindow();
+    return;
+  }
+
+  miniWindowOpening = true;
+  openMiniWindowButton.disabled = true;
+  closeTokenContextMenu();
+  closeEngageContextMenu();
+  try {
+    const pipWindow = await window.documentPictureInPicture.requestWindow({ width: 560, height: 720 });
+    const pipDocument = pipWindow.document;
+    const viewport = pipDocument.createElement("meta");
+    viewport.name = "viewport";
+    viewport.content = "width=device-width, initial-scale=1.0";
+    const stylesheet = pipDocument.createElement("link");
+    stylesheet.rel = "stylesheet";
+    stylesheet.href = document.querySelector('link[rel="stylesheet"]').href;
+    stylesheet.addEventListener("load", updateCompactBoardScale, { once: true });
+    pipDocument.head.append(viewport, stylesheet);
+    pipDocument.title = "DX3rd Combat Board - 小窓";
+    pipDocument.documentElement.lang = "ja";
+    pipDocument.body.className = "compact-mode";
+
+    miniWindow = pipWindow;
+    miniWindowPlaceholder.hidden = false;
+    pipDocument.body.append(battleArea, tokenContextMenu, engageContextMenu);
+    compactViewControls.hidden = false;
+    openMiniWindowButton.textContent = "小窓を閉じる";
+    registerInteractionWindow(pipWindow);
+    pipWindow.addEventListener("resize", updateCompactBoardScale);
+    pipWindow.addEventListener("pagehide", restoreMainWindow, { once: true });
+    setCompactView(compactView);
+  } catch (error) {
+    console.warn("Compact window could not be opened.", error);
+    window.alert("小窓を開けませんでした。ブラウザの設定を確認してください。");
+  } finally {
+    miniWindowOpening = false;
+    openMiniWindowButton.disabled = false;
+  }
+}
+
+function restoreMainWindow() {
+  const closingWindow = miniWindow;
+  if (drag) {
+    endPointer();
+  }
+  if (closingWindow) {
+    unregisterInteractionWindow(closingWindow);
+    closingWindow.removeEventListener("resize", updateCompactBoardScale);
+  }
+  if (battleArea.ownerDocument !== document) {
+    appShell.insertBefore(battleArea, miniWindowPlaceholder);
+    document.body.append(tokenContextMenu, engageContextMenu);
+  }
+  miniWindow = null;
+  miniWindowPlaceholder.hidden = true;
+  compactViewControls.hidden = true;
+  openMiniWindowButton.textContent = "小窓表示";
+  document.body.style.removeProperty("--compact-board-scale");
+  document.body.style.removeProperty("--compact-board-height");
+}
+
+function initializeStandaloneCompactMode() {
+  if (!standaloneCompactMode) {
+    return;
+  }
+  document.body.classList.add("compact-mode");
+  compactViewControls.hidden = false;
+  openMiniWindowButton.textContent = "小窓を閉じる";
+  window.addEventListener("resize", updateCompactBoardScale);
+  setCompactView(compactView);
 }
 
 function getBoardPoint(event) {
   const rect = board.getBoundingClientRect();
+  const scaleX = rect.width ? board.clientWidth / rect.width : 1;
+  const scaleY = rect.height ? board.clientHeight / rect.height : 1;
   return {
-    x: clamp(event.clientX - rect.left, 0, rect.width),
-    y: clamp(event.clientY - rect.top, 0, rect.height),
+    x: clamp((event.clientX - rect.left) * scaleX, 0, board.clientWidth),
+    y: clamp((event.clientY - rect.top) * scaleY, 0, board.clientHeight),
   };
 }
 
@@ -2198,34 +2354,62 @@ exportButton.addEventListener("click", exportBoard);
 importButton.addEventListener("click", importBoardFile);
 importFile.addEventListener("change", handleImportFile);
 
-board.addEventListener("pointerdown", startPointer);
-document.addEventListener("contextmenu", (event) => {
-  const tokenTarget = event.target.closest('[data-type="token"][data-id]');
+function handleContextMenu(event) {
+  const tokenTarget = event.target?.closest?.('[data-type="token"][data-id]');
   if (tokenTarget) {
     event.preventDefault();
     openTokenContextMenu(tokenTarget.dataset.id, event.clientX, event.clientY);
     return;
   }
-  const engageTarget = event.target.closest('[data-type="engage"][data-id]');
+  const engageTarget = event.target?.closest?.('[data-type="engage"][data-id]');
   if (engageTarget) {
     event.preventDefault();
     openEngageContextMenu(engageTarget.dataset.id, event.clientX, event.clientY);
   }
-});
-window.addEventListener("pointermove", movePointer);
-window.addEventListener("pointerup", endPointer);
-window.addEventListener("pointercancel", endPointer);
-document.addEventListener("pointerdown", (event) => {
+}
+
+function handleOutsidePointerDown(event) {
   if (!tokenContextMenu.hidden && event.button === 0 && !tokenContextMenu.contains(event.target)) {
     closeTokenContextMenu();
   }
   if (!engageContextMenu.hidden && event.button === 0 && !engageContextMenu.contains(event.target)) {
     closeEngageContextMenu();
   }
-});
+}
+
+function registerInteractionWindow(targetWindow) {
+  targetWindow.document.addEventListener("contextmenu", handleContextMenu);
+  targetWindow.document.addEventListener("pointerdown", handleOutsidePointerDown);
+  targetWindow.addEventListener("pointermove", movePointer);
+  targetWindow.addEventListener("pointerup", endPointer);
+  targetWindow.addEventListener("pointercancel", endPointer);
+  targetWindow.addEventListener("keydown", handleGlobalKeyDown);
+}
+
+function unregisterInteractionWindow(targetWindow) {
+  targetWindow.document.removeEventListener("contextmenu", handleContextMenu);
+  targetWindow.document.removeEventListener("pointerdown", handleOutsidePointerDown);
+  targetWindow.removeEventListener("pointermove", movePointer);
+  targetWindow.removeEventListener("pointerup", endPointer);
+  targetWindow.removeEventListener("pointercancel", endPointer);
+  targetWindow.removeEventListener("keydown", handleGlobalKeyDown);
+}
+
+board.addEventListener("pointerdown", startPointer);
 
 closeTokenContextMenuButton.addEventListener("click", closeTokenContextMenu);
 closeEngageContextMenuButton.addEventListener("click", closeEngageContextMenu);
+openMiniWindowButton.addEventListener("click", openMiniWindow);
+restoreMiniWindowButton.addEventListener("click", () => {
+  if (miniWindow && !miniWindow.closed) {
+    miniWindow.close();
+  } else {
+    restoreMainWindow();
+  }
+});
+compactViewButtons.forEach((button) => {
+  button.addEventListener("click", () => setCompactView(button.dataset.compactView));
+});
 contextInitiativeInput.addEventListener("input", () => {
   if (contextInitiativeInput.value === "") {
     return;
@@ -2529,7 +2713,7 @@ function isHistoryShortcut(event, key) {
   return event.key.toLowerCase() === key || event.code === `Key${key.toUpperCase()}`;
 }
 
-window.addEventListener("keydown", (event) => {
+function handleGlobalKeyDown(event) {
   if (event.key === "Escape" && (!tokenContextMenu.hidden || !engageContextMenu.hidden)) {
     event.preventDefault();
     closeTokenContextMenu();
@@ -2555,12 +2739,14 @@ window.addEventListener("keydown", (event) => {
     event.preventDefault();
     deleteSelected();
   }
-});
+}
 
 window.DX3RDBoard = Object.freeze({
   applySharedState,
   serializeState,
 });
 
+registerInteractionWindow(window);
+initializeStandaloneCompactMode();
 render();
 initializeRemoteState();

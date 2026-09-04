@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DX3rd Combat Board</title>
-    <link rel="stylesheet" href="styles.css?v=20260902-18" />
+    <link rel="stylesheet" href="styles.css?v=20260904-19" />
   </head>
   <body>
     <main class="app-shell">
@@ -199,29 +199,38 @@
           </div>
           <div class="battle-header-actions">
             <div id="counts" class="counts" aria-live="polite"></div>
-            <div class="history-controls" role="group" aria-label="操作履歴">
-              <button id="undoAction" type="button" class="ghost" title="元に戻す (Ctrl+Z)">元に戻す</button>
-              <button id="redoAction" type="button" class="ghost" title="やり直す (Ctrl+Y)">やり直す</button>
+            <div class="battle-utility-controls">
+              <div class="history-controls" role="group" aria-label="操作履歴">
+                <button id="undoAction" type="button" class="ghost" title="元に戻す (Ctrl+Z)">元に戻す</button>
+                <button id="redoAction" type="button" class="ghost" title="やり直す (Ctrl+Y)">やり直す</button>
+              </div>
+              <button id="openMiniWindow" type="button" class="ghost mini-window-button">小窓表示</button>
             </div>
           </div>
         </header>
+        <div id="compactViewControls" class="compact-view-controls" role="group" aria-label="小窓の表示内容" hidden>
+          <button type="button" data-compact-view="board" aria-pressed="true">盤面</button>
+          <button type="button" data-compact-view="initiative" aria-pressed="false">行動値</button>
+        </div>
         <div class="battle-main">
-          <div id="board" class="board" role="application" aria-label="エンゲージ配置ボード">
-            <div class="grid-layer"></div>
-            <svg id="terrainLayer" class="terrain-layer" aria-hidden="true"></svg>
-            <div id="engageLayer" class="engage-layer"></div>
-            <svg id="shapeLayer" class="shape-layer" aria-hidden="true">
-              <defs>
-                <marker id="arrowHead" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
-                  <path d="M 0 0 L 10 5 L 0 10 z"></path>
-                </marker>
-                <marker id="arrowTail" markerWidth="10" markerHeight="10" refX="2" refY="5" orient="auto" markerUnits="strokeWidth">
-                  <path d="M 10 0 L 0 5 L 10 10 z"></path>
-                </marker>
-              </defs>
-            </svg>
-            <div id="tokenLayer" class="token-layer"></div>
-            <svg id="resizeLayer" class="resize-layer" aria-hidden="true"></svg>
+          <div id="boardViewport" class="board-viewport">
+            <div id="board" class="board" role="application" aria-label="エンゲージ配置ボード">
+              <div class="grid-layer"></div>
+              <svg id="terrainLayer" class="terrain-layer" aria-hidden="true"></svg>
+              <div id="engageLayer" class="engage-layer"></div>
+              <svg id="shapeLayer" class="shape-layer" aria-hidden="true">
+                <defs>
+                  <marker id="arrowHead" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z"></path>
+                  </marker>
+                  <marker id="arrowTail" markerWidth="10" markerHeight="10" refX="2" refY="5" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 10 0 L 0 5 L 10 10 z"></path>
+                  </marker>
+                </defs>
+              </svg>
+              <div id="tokenLayer" class="token-layer"></div>
+              <svg id="resizeLayer" class="resize-layer" aria-hidden="true"></svg>
+            </div>
           </div>
           <aside class="initiative-panel" aria-label="行動値順一覧">
             <div class="turn-heading">
@@ -239,6 +248,12 @@
             <div id="initiativeList" class="initiative-list"></div>
           </aside>
         </div>
+      </section>
+
+      <section id="miniWindowPlaceholder" class="mini-window-placeholder" aria-live="polite" hidden>
+        <h2>戦闘ボードは小窓で表示中です</h2>
+        <p>小窓を閉じると、この画面へ自動的に戻ります。</p>
+        <button id="restoreMiniWindow" type="button">この画面へ戻す</button>
       </section>
     </main>
 
@@ -339,7 +354,7 @@
     <script>
       window.DX3RD_USE_PEER_SYNC = window.location.hostname.endsWith(".github.io");
     </script>
-    <script src="app.js?v=20260902-18"></script>
+    <script src="app.js?v=20260904-19"></script>
     <script type="module" src="sync.js?v=20260810-14"></script>
   </body>
 </html>

@@ -631,6 +631,14 @@ input[type="range"] {
   gap: 8px;
 }
 
+.battle-utility-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .history-controls {
   display: flex;
   gap: 8px;
@@ -639,6 +647,34 @@ input[type="range"] {
 .history-controls .ghost {
   min-width: 92px;
   background: #fffdf8;
+}
+
+.mini-window-button {
+  min-width: 92px;
+  background: #fffdf8;
+}
+
+.compact-view-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.compact-view-controls[hidden] {
+  display: none;
+}
+
+.compact-view-controls button {
+  border-color: var(--line);
+  background: #fffdf8;
+  color: var(--ink);
+}
+
+.compact-view-controls button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
 }
 
 .battle-header h2 {
@@ -660,6 +696,35 @@ input[type="range"] {
   gap: 14px;
   min-height: 0;
   width: max-content;
+}
+
+.board-viewport {
+  width: var(--board-width);
+  height: var(--board-height);
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+
+.mini-window-placeholder {
+  align-self: start;
+  max-width: 520px;
+  margin: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 22px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.mini-window-placeholder[hidden] {
+  display: none;
+}
+
+.mini-window-placeholder p {
+  margin: 8px 0 16px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .initiative-panel {
@@ -1330,4 +1395,109 @@ input[type="range"] {
   .counts {
     justify-content: flex-start;
   }
+}
+
+body.compact-mode {
+  min-width: 0;
+  min-height: 100vh;
+  overflow: hidden;
+  background: #ede8df;
+}
+
+.compact-mode .app-shell {
+  display: block;
+  min-height: 100vh;
+}
+
+.compact-mode .sidebar,
+.compact-mode .mini-window-placeholder {
+  display: none;
+}
+
+.compact-mode .battle-area {
+  display: block;
+  min-height: 100vh;
+  overflow: hidden;
+  padding: 10px;
+}
+
+.compact-mode .battle-header {
+  align-items: center;
+  flex-flow: row wrap;
+  padding-bottom: 8px;
+}
+
+.compact-mode .battle-header h2 {
+  font-size: 17px;
+}
+
+.compact-mode .battle-header p,
+.compact-mode .counts {
+  display: none;
+}
+
+.compact-mode .battle-header-actions {
+  display: block;
+  margin-left: auto;
+}
+
+.compact-mode .battle-utility-controls,
+.compact-mode .history-controls {
+  gap: 5px;
+}
+
+.compact-mode .history-controls .ghost,
+.compact-mode .mini-window-button {
+  min-width: 0;
+  min-height: 34px;
+  padding: 6px 9px;
+  font-size: 12px;
+}
+
+.compact-mode .compact-view-controls {
+  margin-bottom: 8px;
+}
+
+.compact-mode .compact-view-controls button {
+  min-height: 36px;
+}
+
+.compact-mode .battle-main {
+  display: block;
+  width: 100%;
+}
+
+.compact-mode .board-viewport {
+  width: 100%;
+  height: var(--compact-board-height, 350px);
+  border-radius: 8px;
+}
+
+.compact-mode .board {
+  transform: scale(var(--compact-board-scale, 0.5));
+  transform-origin: left top;
+}
+
+.compact-mode[data-compact-view="board"] .initiative-panel {
+  display: none;
+}
+
+.compact-mode[data-compact-view="initiative"] .board-viewport {
+  display: none;
+}
+
+.compact-mode[data-compact-view="initiative"] .initiative-panel {
+  width: 100%;
+  height: calc(100vh - 112px);
+  min-height: 0;
+  padding: 12px;
+}
+
+.compact-mode .initiative-row {
+  min-height: 40px;
+  font-size: 14px;
+}
+
+.compact-mode .initiative-statuses {
+  font-size: 12px;
 }
