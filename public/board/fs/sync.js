@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.110.8";
-import { createFsPatch, createInitialFsState } from "./fs-core.js?v=20260904-22";
+import { createFsPatch, createInitialFsState } from "./fs-core.js?v=20260905-23";
 
 const SUPABASE_URL = "https://znyyanfyllcecwabxpir.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_Rey10satxUWgAodSyNhmIw_L83SF187";

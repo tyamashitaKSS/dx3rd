@@ -132,9 +132,9 @@ test("FS manager and roll-table builder are bundled for hosting", async () => {
   assert.match(html, /id="copyRollTableCommand"/);
   assert.match(html, /id="openFsMiniWindow"/);
   assert.doesNotMatch(html, /ハプニング結果|ハプニング履歴/);
-  assert.match(html, /styles\.css\?v=20260904-22/);
-  assert.match(html, /app\.js\?v=20260904-22/);
-  assert.match(html, /sync\.js\?v=20260904-22/);
+  assert.match(html, /styles\.css\?v=20260905-23/);
+  assert.match(html, /app\.js\?v=20260905-23/);
+  assert.match(html, /sync\.js\?v=20260905-23/);
   assert.match(html, /id="progressEventPins"/);
   assert.match(html, /id="achievementInput" type="number" min="0"/);
   assert.ok(html.indexOf('class="surface judgment-surface"') < html.indexOf('class="surface participants-surface"'));
@@ -143,6 +143,8 @@ test("FS manager and roll-table builder are bundled for hosting", async () => {
   assert.match(script, /dx3rd-fs-roll-tables-v1/);
   assert.match(script, /const options = \[\s*\.\.\.getSortedParticipants\(\)[\s\S]*'<option value="">GM調整<\/option>'/);
   assert.match(script, /achievementInput\.value !== "" && Number\(achievementInput\.value\) < 0/);
+  assert.match(script, /class="condition-primary-group"/);
+  assert.match(script, /イベント反映/);
   assert.match(syncScript, /dx3rd_load_fs/);
   assert.match(syncScript, /dx3rd_apply_fs_patch/);
   assert.match(syncScript, /event: "fs-state"/);

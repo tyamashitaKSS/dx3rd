@@ -10,7 +10,7 @@ import {
   normalizeRollTableLibrary,
   parseRollTableText,
   suggestProgressDelta,
-} from "./fs-core.js?v=20260904-22";
+} from "./fs-core.js?v=20260905-23";
 
 const FS_STORAGE_KEY = "dx3rd-fs-manager-v1";
 const ROLL_TABLE_STORAGE_KEY = "dx3rd-fs-roll-tables-v1";
@@ -365,20 +365,23 @@ function renderProgress() {
   const conditions = getEffectiveFsConditions(state);
   fsTitleDisplay.textContent = state.title || "名称未設定";
   fsDescriptionDisplay.textContent = state.description || "判定内容は未設定です。";
-  const conditionLabels = [
-    { label: `判定: ${conditions.skill || "技能未設定"}`, source: conditions.sources.skill },
-    { label: `難易度 ${conditions.difficulty}`, source: conditions.sources.difficulty },
-    { label: `最大達成値 ${state.maxAchievement}`, source: null },
+  const primaryConditions = [
+    { key: "skill", label: "判定技能", value: conditions.skill || "技能未設定", source: conditions.sources.skill },
+    { key: "difficulty", label: "難易度", value: conditions.difficulty, source: conditions.sources.difficulty },
+    { key: "maximum", label: "最大達成値", value: state.maxAchievement, source: null },
   ];
-  if (conditions.supportCheck) conditionLabels.push({
+  const secondaryConditions = [];
+  if (conditions.supportCheck) secondaryConditions.push({
     label: `支援: ${conditions.supportCheck}`,
     source: conditions.sources.supportCheck,
   });
-  if (state.endCondition) conditionLabels.push({ label: `終了条件: ${state.endCondition}`, source: null });
-  if (state.experiencePoints > 0) conditionLabels.push({ label: `経験点 ${state.experiencePoints}`, source: null });
-  fsConditionSummary.innerHTML = conditionLabels
-    .map(({ label, source }) => `<span${source ? ` class="event-derived" title="進行イベント「${escapeAttribute(source)}」を反映中"` : ""}>${escapeHtml(label)}</span>`)
-    .join("");
+  if (state.endCondition) secondaryConditions.push({ label: `終了条件: ${state.endCondition}`, source: null });
+  if (state.experiencePoints > 0) secondaryConditions.push({ label: `経験点 ${state.experiencePoints}`, source: null });
+  fsConditionSummary.innerHTML = `<div class="condition-primary-group">
+    ${primaryConditions.map(renderPrimaryCondition).join("")}
+  </div>${secondaryConditions.length > 0 ? `<div class="condition-secondary-group">
+    ${secondaryConditions.map(renderSecondaryCondition).join("")}
+  </div>` : ""}`;
   roundDisplay.textContent = `${state.round} / ${state.roundLimit}`;
   progressValue.textContent = String(progress);
   targetProgressValue.textContent = String(state.targetProgress);
@@ -397,6 +400,21 @@ function renderProgress() {
   const reachedUnrevealed = state.events.filter((event) => progress >= event.threshold && !event.revealed).length;
   if (reachedUnrevealed > 0) warnings.push(`公開待ちイベント ${reachedUnrevealed}件`);
   fsWarnings.innerHTML = warnings.map((label) => `<span class="warning-chip">${escapeHtml(label)}</span>`).join("");
+}
+
+function renderPrimaryCondition({ key, label, value, source }) {
+  const sourceLabel = source ? `<em>イベント反映</em>` : "";
+  const sourceTitle = source ? ` title="進行イベント「${escapeAttribute(source)}」を反映中"` : "";
+  return `<div class="condition-primary ${key}${source ? " event-derived" : ""}"${sourceTitle}>
+    <span class="condition-label">${label}${sourceLabel}</span>
+    <strong class="condition-value">${escapeHtml(value)}</strong>
+  </div>`;
+}
+
+function renderSecondaryCondition({ label, source }) {
+  const className = source ? "condition-secondary event-derived" : "condition-secondary";
+  const sourceTitle = source ? ` title="進行イベント「${escapeAttribute(source)}」を反映中"` : "";
+  return `<span class="${className}"${sourceTitle}>${escapeHtml(label)}</span>`;
 }
 
 function renderProgressEventPins(progress) {
